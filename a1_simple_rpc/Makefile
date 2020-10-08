@@ -10,7 +10,6 @@ rpc: a1_lib.c frontend.c backend.c
 	$(CC) -o $(CLIENT) $(CFLAGS) frontend.c a1_lib.c
 	$(CC) -o $(SERVER) $(CFLAGS) backend.c a1_lib.c
 
-	# figure out why .h files arent added to make file
 clean:
 	rm -rf $(CLIENT) $(SERVER)
 

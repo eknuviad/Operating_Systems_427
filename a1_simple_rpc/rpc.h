@@ -18,11 +18,8 @@ typedef struct request_msg{
 
 typedef struct response_msg{
     char return_value[BUFSIZE];
-  //add some error handling
 }response_msg;
 
 #endif //RPC_H
 
-// response
-// requesstruct
-// declare the RPCServ methods
+

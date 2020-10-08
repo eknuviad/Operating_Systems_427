@@ -27,6 +27,7 @@ int main(int argc, char *argv[])
   {
     memset(user_input, 0, sizeof(user_input));
     memset(server_msg, 0, sizeof(server_msg));
+    printf(">>");
 
     // read user input from command line
     fgets(user_input, BUFSIZE, stdin);
@@ -43,7 +44,8 @@ int main(int argc, char *argv[])
     {
       break;
     }
-    printf("Server: %s\n", server_msg);
+    printf("%s\n", server_msg);
+    fflush(stdout);
   }
 
   return 0;

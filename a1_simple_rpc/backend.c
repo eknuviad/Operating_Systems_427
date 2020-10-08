@@ -59,6 +59,7 @@ int main(int argc, char *argv[]) {
       fprintf(stderr,"[+]Connection accepted from client\n");
     }
 
+    //child process to handle messages
     if((childpid = fork())==0){
     
       while (strcmp(msg, "quit\n")) {
@@ -69,33 +70,31 @@ int main(int argc, char *argv[]) {
         char x[BUFSIZE]={0};
         char y[BUFSIZE]={0};
         int i = 1;
+        //get message from frontend
         ssize_t byte_count = recv_message(clientfd, msg, sizeof(msg));
         if (byte_count <= 0) {
           break;
         }
         char *token = strtok(msg, " ");
 
-        if (strcmp(token, "add")==0){
+        if (strcmp(token, "add")==0){ 
           //store inputs in char arrays
             while(token!=0){
               if (i == 1){
                 strcpy(cmd,token);
-                printf("cmd is %s\n", cmd);
               }else if (i == 2){
                 strcpy(x, token);
-                printf("x is %s\n", x);
               }
               else if(i == 3){
               strcpy(y,token);
-                printf("y is %s\n", y);
               }else{
                 printf("Illegal arguments");
+                fflush(stdout);
               }
               token = strtok(0," ");
               i++;
           }
           sprintf(result, "%d", addInts(atoi(x),atoi(y)));
-          printf("The final result is %s\n", result);
 
 
         }else if (strcmp(token, "multiply")==0){
@@ -103,14 +102,11 @@ int main(int argc, char *argv[]) {
             while(token!=0){
               if (i == 1){
                 strcpy(cmd,token);
-                printf("cmd is %s\n", cmd);
               }else if (i == 2){
                 strcpy(x, token);
-                printf("x is %s\n", x);
               }
               else if(i == 3){
               strcpy(y,token);
-                printf("y is %s\n", y);
               }else{
                 printf("Illegal arguments");
               }
@@ -118,58 +114,56 @@ int main(int argc, char *argv[]) {
               i++;
           }
           sprintf(result, "%d", multiplyInts(atoi(x),atoi(y)));
-          printf("The final result is %s\n", result);
 
         }else if (strcmp(token,"divide")==0){
               while(token!=0){
               if (i == 1){
                 strcpy(cmd,token);
-                printf("cmd is %s\n", cmd);
               }else if (i == 2){
                 strcpy(x, token);
-                printf("x is %s\n", x);
               }
               else if(i == 3){
               strcpy(y,token);
-              printf("y is %s\n", y);
               }else{
                 printf("Illegal arguments");
+                fflush(stdout);
               }
               token = strtok(0," ");
               i++;
           }
+
+          //check division by zero error
           if(strcmp(y,"0\n") == 0){
             sprintf(result, "Error: Division by zero");
           }else{
-          sprintf(result, "%f", divideFloats((float) atoi(x),(float) atoi(y)));
-          printf("The final result is %s\n", result);
+            sprintf(result, "%f", divideFloats((float) atoi(x),(float) atoi(y)));
           }
 
         }else if (strcmp(token,"factorial")==0){
               while(token!=0){
               if (i == 1){
                 strcpy(cmd,token);
-                printf("cmd is %s\n", cmd);
               }else if (i == 2){
                 strcpy(x, token);
-                printf("x is %s\n", x);
               }
             else{
                 printf("Illegal arguments");
+                fflush(stdout);
               }
               token = strtok(0," ");
               i++;
           }
           sprintf(result, "%d", factorial(atoi(x)));
-          printf("The factorial result is %s\n", result);
 
 
         }else if (strcmp(token,"sleep")==0){
             token = strtok(0, " ");
-            sleep(atoi(token)); //make the calculator sleep for x seconds
-          sprintf(result, "Done sleeping for %s seconds", token );
+            //make the calculator sleep for x seconds
+            sleep(atoi(token)); 
+            sprintf(result, "Done sleeping for %s seconds", token );
 
-        }else if (strcmp(token, "quit")==0 || strcmp(token, "shutdown")==0){
+        }
+        else if (strcmp(token, "quit")==0 || strcmp(token, "shutdown")==0){
           sprintf(result, "Goodbye! from Edem's server"); 
           send_message(clientfd, result, BUFSIZE);
           end_signal = 1; 
