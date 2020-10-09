@@ -61,6 +61,5 @@ int main(int argc, char *argv[])
     printf("%s\n", reply);
     fflush(stdout);
   }
-  close(sockfd);
   return 0;
 }

@@ -167,6 +167,6 @@ int main(int argc, char *argv[]) {
       }
     }
   }
-  close(clientfd);
+
   return 0;
 }
