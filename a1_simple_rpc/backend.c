@@ -33,9 +33,10 @@ uint16_t factorial(int x){
 
 int main(int argc, char *argv[]) {
   int sockfd, clientfd;
-  char msg[BUFSIZE] = {0};
+  char msg[4*BUFSIZE] = {0};
   char user_input[BUFSIZE] = {0};
-  int running = 1;
+  char cmd[4*BUFSIZE] = {0};
+  char args[4*BUFSIZE] = {0};
   int end_signal = 0;
   pid_t childpid;
 
@@ -65,30 +66,32 @@ int main(int argc, char *argv[]) {
       while (strcmp(msg, "quit\n")) {
         memset(msg, 0, sizeof(msg));
         char result[BUFSIZE];
-        char error[BUFSIZE];
-        char cmd[BUFSIZE] = {0};
         char x[BUFSIZE]={0};
         char y[BUFSIZE]={0};
         int i = 1;
+
         //get message from frontend
         ssize_t byte_count = recv_message(clientfd, msg, sizeof(msg));
         if (byte_count <= 0) {
           break;
         }
-        char *token = strtok(msg, " ");
+     
+        //make local copy of comand and parameters
+        request_msg *request = (request_msg*) msg;
+        strcpy(cmd, request -> cmd);
+        strcpy(args, request->params);
 
-        if (strcmp(token, "add")==0){ 
+        char *token = strtok(args, " ");
+
+        if (strcmp(cmd, "add")==0){ 
           //store inputs in char arrays
             while(token!=0){
-              if (i == 1){
-                strcpy(cmd,token);
-              }else if (i == 2){
+               if (i == 1){
                 strcpy(x, token);
               }
-              else if(i == 3){
+              else if(i == 2){
               strcpy(y,token);
               }else{
-                printf("Illegal arguments");
                 fflush(stdout);
               }
               token = strtok(0," ");
@@ -96,36 +99,30 @@ int main(int argc, char *argv[]) {
           }
           sprintf(result, "%d", addInts(atoi(x),atoi(y)));
 
-
-        }else if (strcmp(token, "multiply")==0){
+        }else if (strcmp(cmd, "multiply")==0){
           //store inputs in char arrays
             while(token!=0){
               if (i == 1){
-                strcpy(cmd,token);
-              }else if (i == 2){
                 strcpy(x, token);
               }
-              else if(i == 3){
+              else if(i == 2){
               strcpy(y,token);
               }else{
-                printf("Illegal arguments");
+               fflush(stdout);
               }
               token = strtok(0," ");
               i++;
           }
           sprintf(result, "%d", multiplyInts(atoi(x),atoi(y)));
 
-        }else if (strcmp(token,"divide")==0){
+        }else if (strcmp(cmd,"divide")==0){
               while(token!=0){
               if (i == 1){
-                strcpy(cmd,token);
-              }else if (i == 2){
                 strcpy(x, token);
               }
-              else if(i == 3){
+              else if(i == 2){
               strcpy(y,token);
               }else{
-                printf("Illegal arguments");
                 fflush(stdout);
               }
               token = strtok(0," ");
@@ -139,15 +136,12 @@ int main(int argc, char *argv[]) {
             sprintf(result, "%f", divideFloats((float) atoi(x),(float) atoi(y)));
           }
 
-        }else if (strcmp(token,"factorial")==0){
+        }else if (strcmp(cmd,"factorial")==0){
               while(token!=0){
               if (i == 1){
-                strcpy(cmd,token);
-              }else if (i == 2){
                 strcpy(x, token);
               }
-            else{
-                printf("Illegal arguments");
+              else{
                 fflush(stdout);
               }
               token = strtok(0," ");
@@ -156,30 +150,23 @@ int main(int argc, char *argv[]) {
           sprintf(result, "%d", factorial(atoi(x)));
 
 
-        }else if (strcmp(token,"sleep")==0){
-            token = strtok(0, " ");
+        }else if (strcmp(cmd,"sleep")==0){
+            fprintf(stderr, "Sleeping...");
             //make the calculator sleep for x seconds
             sleep(atoi(token)); 
             sprintf(result, "Done sleeping for %s seconds", token );
 
         }
-        else if (strcmp(token, "quit")==0 || strcmp(token, "shutdown")==0){
-          sprintf(result, "Goodbye! from Edem's server"); 
-          send_message(clientfd, result, BUFSIZE);
-          end_signal = 1; 
+        else if (strcmp(cmd, "quit")==0 || strcmp(cmd, "shutdown")==0){
           exit(0);
         }
         else{
-          sprintf(result, "Error: Command %s not found", token);  
+          sprintf(result, "Error: Command %s not found", cmd);  
         }
         send_message(clientfd, result, BUFSIZE);
       }
     }
-
-    if(end_signal == 1){
-      break;
-    }
   }
-
+  close(clientfd);
   return 0;
 }

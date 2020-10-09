@@ -12,6 +12,9 @@ int main(int argc, char *argv[])
   int sockfd;
   char user_input[BUFSIZE] = {0};
   char server_msg[BUFSIZE] = {0};
+  char reply[3*BUFSIZE] = {0};
+  request_msg request;
+  response_msg *response;
 
   if (argc <= 2 || argc > 3)
   {
@@ -31,22 +34,33 @@ int main(int argc, char *argv[])
 
     // read user input from command line
     fgets(user_input, BUFSIZE, stdin);
+    strcat(user_input, " \n"); 
+    char *token = strtok(user_input, " ");
+    strcpy(request.cmd, token);
+    token = strtok(NULL, "");
+    strcpy(request.params, token);
 
+    //send message to backend for processing
+    send_message(sockfd, (char*) &request, sizeof(request));
+  
     if (strcmp(user_input, "quit\n") == 0 || strcmp(user_input, "shutdown\n") == 0)
     {
-      send_message(sockfd, user_input, strlen(user_input));
+      send_message(sockfd, (char*) &request, sizeof(request));
       break;
     }
-    send_message(sockfd, user_input, strlen(user_input));
+
     // receive a msg from the server
     ssize_t byte_count = recv_message(sockfd, server_msg, sizeof(server_msg));
     if (byte_count <= 0)
     {
       break;
     }
-    printf("%s\n", server_msg);
+    
+    response = (response_msg*) server_msg;
+    strcpy(reply, response -> return_value);
+    printf("%s\n", reply);
     fflush(stdout);
   }
-
+  close(sockfd);
   return 0;
 }
