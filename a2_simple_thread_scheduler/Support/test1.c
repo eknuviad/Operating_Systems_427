@@ -7,7 +7,7 @@ void hello1() {
 	printf("Hello world!, this is SUT-One %d\n", i);
 	sut_yield();
     }
-    // sut_exit();
+    sut_exit();
 }
 
 void hello2() {
@@ -16,7 +16,7 @@ void hello2() {
 	printf("Hello world!, this is SUT-Two %d\n", i);
 	sut_yield();
     }
-    // sut_exit();
+    sut_exit();
 }
 
 int main() {

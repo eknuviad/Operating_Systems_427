@@ -28,21 +28,27 @@ int curthread;
 void *C_EXEC(void *arg){
     pthread_mutex_t *lock = arg;
 
-    struct queue_entry *ptr = queue_pop_head(&ready_q);
+    struct queue_entry *ptr;
     //need to figure out how to read out and swap to context
     // int curthread;
     while(true){
         pthread_mutex_lock(lock);
-        curthread = *(int *)ptr ->data;
+        if(numthreads > 0){
+            ptr = queue_pop_head(&ready_q);
+            curthread = *(int *)ptr ->data;
+            usleep(1000);
+            // ptr = queue_pop_head(&ready_q);
+            // printf(" 1  C_EXEC\n");
+            getcontext(&parent);//might not be necesary. I want to save the curret context here
+            pthread_mutex_unlock(lock);
+            swapcontext(&parent,&(threadarr[curthread].threadcontext));
+            usleep(1000 * 1000);
+        }else{
+            pthread_mutex_unlock(lock);
+            usleep(1000 * 1000);
+        }
         // printf("popped %d\n", *(int*)ptr->data);
         // printf(" 1 Hello from\n");
-        usleep(1000);
-        ptr = queue_pop_head(&ready_q);
-        // printf(" 1  C_EXEC\n");
-        getcontext(&parent);//might not be necesary. I want to save the curret context here
-        pthread_mutex_unlock(lock);
-        swapcontext(&parent,&(threadarr[curthread].threadcontext));
-        usleep(1000 * 1000);
     }
     //critical section is the queue so place a lock before accessing that
     //and release the lock for iexec to use when done
@@ -119,14 +125,16 @@ void sut_shutdown(){
 }
 
 void sut_yield(){
-
     
     struct queue_entry *node = queue_new_node(&(threadarr[curthread].threadid));
     queue_insert_tail(&ready_q, node);
     swapcontext(&(threadarr[curthread].threadcontext),&parent);
 }
 
-void sut_exit();
+void sut_exit(){
+    numthreads--;
+    swapcontext(&(threadarr[curthread].threadcontext),&parent);
+}
 void sut_open(char *dest, int port);
 void sut_write(char *but, int size);
 void sut_close();
