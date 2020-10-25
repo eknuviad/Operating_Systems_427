@@ -1,6 +1,18 @@
 #ifndef __SUT_H__
 #define __SUT_H__
 #include <stdbool.h>
+#include <ucontext.h>
+
+#define MAX_THREADS                        32
+#define THREAD_STACK_SIZE                  1024*64
+
+typedef struct __threaddesc
+{
+	int threadid;
+	char *threadstack;
+	void *threadfunc;
+	ucontext_t threadcontext;
+} threaddesc;
 
 typedef void (*sut_task_f)();
 
