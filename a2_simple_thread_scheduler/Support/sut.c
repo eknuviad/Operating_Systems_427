@@ -17,11 +17,12 @@ static ucontext_t parent;
 struct queue ready_q;
 struct queue waiting_q;
 int numthreads;
+int curthread;
 
-int x =1;
-int y =2;
-int z =3;
-int w =4;
+// int x =1;
+// int y =2;
+// int z =3;
+// int w =4;
 
 //cexec thread to handle computation of tasks
 void *C_EXEC(void *arg){
@@ -29,15 +30,18 @@ void *C_EXEC(void *arg){
 
     struct queue_entry *ptr = queue_pop_head(&ready_q);
     //need to figure out how to read out and swap to context
-    
+    // int curthread;
     while(true){
         pthread_mutex_lock(lock);
-        printf("popped %d\n", *(int*)ptr->data);
+        curthread = *(int *)ptr ->data;
+        // printf("popped %d\n", *(int*)ptr->data);
         // printf(" 1 Hello from\n");
         usleep(1000);
         ptr = queue_pop_head(&ready_q);
         // printf(" 1  C_EXEC\n");
+        getcontext(&parent);//might not be necesary. I want to save the curret context here
         pthread_mutex_unlock(lock);
+        swapcontext(&parent,&(threadarr[curthread].threadcontext));
         usleep(1000 * 1000);
     }
     //critical section is the queue so place a lock before accessing that
@@ -78,8 +82,7 @@ void sut_init(){
 
 
 //Method to add function to a new context to be executed
-// bool sut_create(sut_task_f fn){
-bool test_sut_create(int *p){
+bool sut_create(sut_task_f fn){
 
     threaddesc *tdescptr;
 
@@ -88,28 +91,23 @@ bool test_sut_create(int *p){
 		return false;
 	}
 
-    // tdescptr = &(threadarr[numthreads]);
-	// getcontext(&(tdescptr->threadcontext));
-	// tdescptr->threadid = numthreads;
-	// tdescptr->threadstack = (char *)malloc(THREAD_STACK_SIZE);
-	// tdescptr->threadcontext.uc_stack.ss_sp = tdescptr->threadstack;
-	// tdescptr->threadcontext.uc_stack.ss_size = THREAD_STACK_SIZE;
-	// tdescptr->threadcontext.uc_link = 0;
-	// tdescptr->threadcontext.uc_stack.ss_flags = 0;
-	// tdescptr->threadfunc = fn;
+    tdescptr = &(threadarr[numthreads]);
+	getcontext(&(tdescptr->threadcontext));
+	tdescptr->threadid = numthreads;
+	tdescptr->threadstack = (char *)malloc(THREAD_STACK_SIZE);
+	tdescptr->threadcontext.uc_stack.ss_sp = tdescptr->threadstack;
+	tdescptr->threadcontext.uc_stack.ss_size = THREAD_STACK_SIZE;
+	tdescptr->threadcontext.uc_link = 0;
+	tdescptr->threadcontext.uc_stack.ss_flags = 0;
+	tdescptr->threadfunc = fn;
 
-	// makecontext(&(tdescptr->threadcontext), fn, 1, tdescptr);
+	makecontext(&(tdescptr->threadcontext), fn, 1, tdescptr);
     
-    // struct queue_entry *node = queue_new_node(tdescptr);
-    // queue_insert_tail(&ready_q, node);
+    struct queue_entry *node = queue_new_node(&(tdescptr->threadid));
+    queue_insert_tail(&ready_q, node);
 
-    // numthreads++;
-
-    struct queue_entry *node1 = queue_new_node(p);
-    queue_insert_tail(&ready_q, node1);
+    numthreads++;
     
-    
-
     return true;
 }
 
@@ -120,7 +118,13 @@ void sut_shutdown(){
 
 }
 
-void sut_yield();
+void sut_yield(){
+
+    
+    struct queue_entry *node = queue_new_node(&(threadarr[curthread].threadid));
+    queue_insert_tail(&ready_q, node);
+    swapcontext(&(threadarr[curthread].threadcontext),&parent);
+}
 
 void sut_exit();
 void sut_open(char *dest, int port);
@@ -129,15 +133,15 @@ void sut_close();
 char *sut_read();
 
 
-int main(){
-    sut_init();
-    test_sut_create(&x);
-    test_sut_create(&y);
-    test_sut_create(&z);
-    test_sut_create(&w);
-    sut_shutdown();
-    return 0;
-}
+// int main(){
+//     sut_init();
+//     test_sut_create(&x);
+//     test_sut_create(&y);
+//     test_sut_create(&z);
+//     test_sut_create(&w);
+//     sut_shutdown();
+//     return 0;
+// }
 
 
 
