@@ -32,10 +32,14 @@ void *C_EXEC(void *arg){
     
     while(true){
         pthread_mutex_lock(lock);
-        printf("popped %d\n", *(int*)ptr->data);
+        if(numthreads > 0){
+            printf("popped %d\n", *(int*)ptr->data);
+            printf("no of threads %d\n", numthreads);
+            usleep(1000);
+            ptr = queue_pop_head(&ready_q);
+            numthreads --;
+        }
         // printf(" 1 Hello from\n");
-        usleep(1000);
-        ptr = queue_pop_head(&ready_q);
         // printf(" 1  C_EXEC\n");
         pthread_mutex_unlock(lock);
         usleep(1000 * 1000);
@@ -108,7 +112,7 @@ bool test_sut_create(int *p){
     struct queue_entry *node1 = queue_new_node(p);
     queue_insert_tail(&ready_q, node1);
     
-    
+    numthreads++;
 
     return true;
 }
