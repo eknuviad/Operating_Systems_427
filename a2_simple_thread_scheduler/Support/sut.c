@@ -14,9 +14,11 @@ pthread_t iexec_thread_handle;
 pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
 
 ucontext_t parent;
-// struct queue ready_q;
-// struct queue waiting_q;
+struct queue ready_q;
+struct queue waiting_q;
 int numthreads;
+
+
 
 //cexec thread to handle computation of tasks
 void *C_EXEC(void *arg){
@@ -55,14 +57,13 @@ void sut_init(){
 
     numthreads = 0;
 
-    // struct queue *rq = &ready_q;
-    // rq = queue_create();
-    // queue_init(rq);
+//initialise ready and wait queue
+    ready_q = queue_create();
+    queue_init(&ready_q);
 
-    // struct queue *wq =&waiting_q;
-    // wq =  queue_create();
-    // queue_init(wq);
-    sut_shutdown();
+    waiting_q =  queue_create();
+    queue_init(&waiting_q);
+    
 }
 
 
@@ -89,8 +90,8 @@ bool sut_create(sut_task_f fn){
 
 	makecontext(&(tdescptr->threadcontext), fn, 1, tdescptr);
     
-    // struct queue_entry *node = queue_new_node(tdescptr);
-    // queue_insert_tail(&ready_q, node);
+    struct queue_entry *node = queue_new_node(tdescptr);
+    queue_insert_tail(&ready_q, node);
 
     numthreads++;
     
@@ -115,5 +116,25 @@ char *sut_read();
 
 int main(){
     sut_init();
+    sut_shutdown();
     return 0;
 }
+
+
+
+//useful to add stuff to queue
+//  struct queue_entry *node1 = queue_new_node(&x);
+//     queue_insert_tail(&ready_q, node1);
+    
+//     struct queue_entry *node2 = queue_new_node(&y);
+//     queue_insert_tail(&ready_q, node2);
+
+//     struct queue_entry *ptr = queue_pop_head(&ready_q);
+//     while(ptr) {
+//         printf("popped %d\n", *(int*)ptr->data);
+        
+//         queue_insert_tail(&ready_q, ptr);
+//         usleep(1000 * 1000);
+        
+//         ptr = queue_pop_head(&ready_q);
+//     }
