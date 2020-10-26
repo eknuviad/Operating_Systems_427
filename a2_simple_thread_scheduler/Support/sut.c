@@ -11,6 +11,7 @@
 #include <arpa/inet.h>
 
 threaddesc threadarr[MAX_THREADS];
+int sockarr[MAX_THREADS];
 // pthreads global 
 pthread_t cexec_thread_handle;
 pthread_t iexec_thread_handle;
@@ -21,9 +22,10 @@ struct queue ready_q;
 struct queue waiting_q;
 struct waitinfo *cur_wait;
 int numthreads;
+int numsockts;
 int curthread;
 int waitqcount;
-int sockfd;
+// int sockfd;
 
 
 int connect_to_server(const char *host, uint16_t port, int *sockfd) {
@@ -86,6 +88,7 @@ void *I_EXEC(void *arg){
 
     // }
     struct queue_entry *ptr;
+    
 
     while(true){
         pthread_mutex_lock(lock);
@@ -95,8 +98,8 @@ void *I_EXEC(void *arg){
             waitinfo *task = ptr->data;
             usleep(1000);
             if(strcmp("open\n", task->cmd)){
-                printf("C queue\n");
-                connect_to_server(task->arg_pointer, task->arg, &sockfd);
+                printf("C queue\n");             
+                connect_to_server(task->arg_pointer, task->arg, &(sockarr[task->threadid]));
                 struct queue_entry *node = queue_new_node(&(threadarr[task->threadid].threadid));
                 queue_insert_tail(&ready_q, node);
                 waitqcount--;
@@ -125,6 +128,7 @@ void sut_init(){
     pthread_create(&iexec_thread_handle,NULL, I_EXEC, &m);
 
     numthreads = 0;
+    numsockts = 0;
 
 //initialise ready and wait queue
     ready_q = queue_create();
@@ -141,6 +145,7 @@ void sut_init(){
 bool sut_create(sut_task_f fn){
 
     threaddesc *tdescptr;
+    int *sockdescptr;
 
     if (numthreads >= 32) {
 		printf("FATAL: Maximum thread limit reached... creation failed! \n");
@@ -161,6 +166,9 @@ bool sut_create(sut_task_f fn){
     
     struct queue_entry *node = queue_new_node(&(tdescptr->threadid));
     queue_insert_tail(&ready_q, node); //might need to place a lock on this
+
+    sockdescptr = &(sockarr[numthreads]);
+    *sockdescptr = -1; //initialise sock for every thread created
 
     numthreads++;
     
@@ -184,26 +192,31 @@ void sut_exit(){
 }
 
 void sut_open(char *dest, int port){
-    waitinfo wait_info = {.threadid = 5, .cmd = "open",
+    waitinfo wait_info = {.threadid = curthread, .cmd = "open",
                     .arg_pointer = dest, .arg = port};
     struct queue_entry *node = queue_new_node(&(wait_info));
     queue_insert_tail(&waiting_q, node);
     waitqcount++;
 
-    // struct queue_entry *ptr = queue_pop_head(&waiting_q);
-    // waitinfo *info = (ptr->data);
-    
-    // printf("popped %s\n", info->cmd);
-   
-
-    // printf("here\n");
     swapcontext(&(threadarr[curthread].threadcontext),&parent);
 
 }
 
 
 
-void sut_write(char *buf, int size);
+void sut_write(char *buf, int size){
+    waitinfo wait_info = {.threadid = curthread, .cmd = "write",
+                    .arg_pointer = buf, .arg = size};
+    struct queue_entry *node = queue_new_node(&(wait_info));
+    queue_insert_tail(&waiting_q, node);
+    waitqcount++;
+
+    swapcontext(&(threadarr[curthread].threadcontext),
+                &(threadarr[curthread].threadcontext));
+
+}
+
+
 void sut_close();
 char *sut_read();
 
