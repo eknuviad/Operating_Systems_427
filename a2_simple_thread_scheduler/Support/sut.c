@@ -23,9 +23,30 @@ struct waitinfo *cur_wait;
 int numthreads;
 int curthread;
 int waitqcount;
-char x = '3';
+int sockfd;
 
 
+int connect_to_server(const char *host, uint16_t port, int *sockfd) {
+    // might need to double check this method for accuracy
+  struct sockaddr_in server_address = { 0 };
+
+  // create a new socket
+  *sockfd = socket(AF_INET, SOCK_STREAM, 0);
+  if (*sockfd < 0) {
+    perror("Failed to create a new socket\n");
+    return -1;
+  }
+
+  // connect to server
+  server_address.sin_family = AF_INET;
+  inet_pton(AF_INET, host, &(server_address.sin_addr.s_addr));
+  server_address.sin_port = htons(port);
+  if (connect(*sockfd, (struct sockaddr *)&server_address, sizeof(server_address)) < 0) {
+    perror("Failed to connect to server\n");
+    return -1;
+  }
+  return 0;
+}
 
 //cexec thread to handle computation of tasks
 void *C_EXEC(void *arg){
@@ -68,19 +89,27 @@ void *I_EXEC(void *arg){
 
     while(true){
         pthread_mutex_lock(lock);
-
+        
         if(waitqcount > 0){
             ptr = queue_pop_head(&waiting_q);
-            cur_wait = (waitinfo *)ptr ->data;
+            waitinfo *task = ptr->data;
             usleep(1000);
-            if(strcmp("open", cur_wait->cmd)){
-                printf("Reached here");
+            if(strcmp("open\n", task->cmd)){
+                printf("C queue\n");
+                connect_to_server(task->arg_pointer, task->arg, &sockfd);
+                struct queue_entry *node = queue_new_node(&(threadarr[task->threadid].threadid));
+                queue_insert_tail(&ready_q, node);
                 waitqcount--;
+            }else{
+                printf("NoC queue\n");
+
             }
             // getcontext(&parent);//might not be necesary. I want to save the curret context here
-            // pthread_mutex_unlock(lock);
+            
             // swapcontext(&parent,&(threadarr[curthread].threadcontext));
-            usleep(1000 * 1000);
+            pthread_mutex_unlock(lock);
+            //TODO add context back to ready queue
+            usleep(1000);
 
         }else{
             pthread_mutex_unlock(lock);
@@ -155,37 +184,24 @@ void sut_exit(){
 }
 
 void sut_open(char *dest, int port){
-    waitinfo wait_info = {.threadid = curthread, .cmd = "open",
+    waitinfo wait_info = {.threadid = 5, .cmd = "open",
                     .arg_pointer = dest, .arg = port};
     struct queue_entry *node = queue_new_node(&(wait_info));
     queue_insert_tail(&waiting_q, node);
     waitqcount++;
+
+    // struct queue_entry *ptr = queue_pop_head(&waiting_q);
+    // waitinfo *info = (ptr->data);
+    
+    // printf("popped %s\n", info->cmd);
+   
+
+    // printf("here\n");
     swapcontext(&(threadarr[curthread].threadcontext),&parent);
 
 }
 
 
-int connect_to_server(const char *host, uint16_t port, int *sockfd) {
-    // might need to double check this method for accuracy
-  struct sockaddr_in server_address = { 0 };
-
-  // create a new socket
-  *sockfd = socket(AF_INET, SOCK_STREAM, 0);
-  if (*sockfd < 0) {
-    perror("Failed to create a new socket\n");
-    return -1;
-  }
-
-  // connect to server
-  server_address.sin_family = AF_INET;
-  inet_pton(AF_INET, host, &(server_address.sin_addr.s_addr));
-  server_address.sin_port = htons(port);
-  if (connect(*sockfd, (struct sockaddr *)&server_address, sizeof(server_address)) < 0) {
-    perror("Failed to connect to server\n");
-    return -1;
-  }
-  return 0;
-}
 
 void sut_write(char *buf, int size);
 void sut_close();
@@ -193,9 +209,9 @@ char *sut_read();
 
 
 
-int main(){
-    sut_init();
-    sut_open(&x, 3);
-    sut_shutdown();
-    return 0;
-}
+// int main(){
+//     sut_init();
+//     sut_open(&x, 3);
+//     sut_shutdown();
+//     return 0;
+// }
