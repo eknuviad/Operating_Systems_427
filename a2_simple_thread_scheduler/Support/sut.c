@@ -29,7 +29,6 @@ void *C_EXEC(void *arg){
         pthread_mutex_lock(lock);
 
         if(numthreads > 0){
-            printf("no of thread %d\n", numthreads);
             ptr = queue_pop_head(&ready_q);
             curthread = *(int *)ptr ->data;
             usleep(1000);
@@ -102,7 +101,7 @@ bool sut_create(sut_task_f fn){
 	makecontext(&(tdescptr->threadcontext), fn, 1, tdescptr);
     
     struct queue_entry *node = queue_new_node(&(tdescptr->threadid));
-    queue_insert_tail(&ready_q, node);
+    queue_insert_tail(&ready_q, node); //might need to place a lock on this
 
     numthreads++;
     
