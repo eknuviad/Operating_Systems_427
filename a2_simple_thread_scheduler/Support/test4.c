@@ -9,16 +9,12 @@ void hello1() {
     char sbuf[128];
     char *str;
     sut_open(dest,port);
-    for (i = 0; i < 100; i++) {
-	sprintf(sbuf, "Hello world!, message from SUT-One i = %d \n", i);
+    for (i = 0; i < 5; i++) {
+    // printf("one i is %d\n", i);
+	sprintf(sbuf, "echo Hello world!, message from SUT-One i = %d \n", i);
 	sut_write(sbuf, strlen(sbuf));
-    str = sut_read();
-    if (strlen(str) != 0)
-	    printf("%s\n", str);
-	else
-	    printf("ERROR!, empty message received \n");
-	// sut_yield();
-    // }
+    char *output = sut_read();
+    printf ("Result output: %s\n", output);
 	sut_yield();
     }
     sut_exit();
@@ -26,7 +22,7 @@ void hello1() {
 
 void hello2() {
     int i;
-    for (i = 0; i < 100; i++) {
+    for (i = 0; i < 5; i++) {
 	printf("Hello world!, this is SUT-Two i = %d\n", i);
 	sut_yield();
     }
