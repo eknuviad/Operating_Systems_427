@@ -121,7 +121,7 @@ void *I_EXEC(void *arg){
                 recv_message(sockarr[task->threadid], task->arg_pointer, task->arg); 
                 readbuf = task->arg_pointer;
                 //change context back to read context previously saved
-                swapcontext(&iexecxt, &readcxt);
+                swapcontext(&iexecxt, &readcxt);//this is wrong do not explicitly call swap in iexec
                 struct queue_entry *node = queue_new_node(&(threadarr[task->threadid].threadid));
                 queue_insert_tail(&ready_q, node);
         
