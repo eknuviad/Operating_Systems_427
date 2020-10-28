@@ -15,9 +15,11 @@ int sockarr[MAX_THREADS];
 // pthreads global 
 pthread_t cexec_thread_handle;
 pthread_t iexec_thread_handle;
-pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER; //should this be static?
 
 static ucontext_t parent;
+static ucontext_t readcxt;
+static ucontext_t iexecxt;
 struct queue ready_q;
 struct queue waiting_q;
 struct waitinfo *cur_wait;
@@ -25,6 +27,7 @@ int numthreads;
 int numsockts;
 int curthread;
 int waitqcount;
+char *readbuf;
 
 //copied these from previous assignment
 ssize_t send_message(int sockfd, const char *buf, size_t len) {
@@ -104,7 +107,8 @@ void *I_EXEC(void *arg){
         if(waitqcount > 0){
             ptr = queue_pop_head(&waiting_q);
             waitinfo *task = ptr->data;
-            usleep(1000);
+            // usleep(1000);
+            printf("task is = %s\n", task->cmd);
             if(strcmp("open\n", task->cmd)){
                 connect_to_server(task->arg_pointer, task->arg, &(sockarr[task->threadid]));
                 struct queue_entry *node = queue_new_node(&(threadarr[task->threadid].threadid));
@@ -114,12 +118,20 @@ void *I_EXEC(void *arg){
             }else if (strcmp("read\n", task->cmd)){
                 // printf("readC queue\n");
                 //TODO perform whatever read does
+                recv_message(sockarr[task->threadid], task->arg_pointer, task->arg); 
+                readbuf = task->arg_pointer;
+                //change context back to read context previously saved
+                swapcontext(&iexecxt, &readcxt);
                 struct queue_entry *node = queue_new_node(&(threadarr[task->threadid].threadid));
                 queue_insert_tail(&ready_q, node);
         
             }else if (strcmp("write\n", task->cmd)){
                 //TODO perform whatever write does
-
+                //write to buffer, no need to add to ready queue after
+                //since this should be a non--blocking write
+                printf("write here4\n");
+                send_message(sockarr[task->threadid], task->arg_pointer, task->arg); 
+                usleep(1000);
             }else if(strcmp("close\n", task->cmd)){
                 //TODO perform whatever close does
             }else{
@@ -132,7 +144,8 @@ void *I_EXEC(void *arg){
 
         }else{
             pthread_mutex_unlock(lock);
-            usleep(1000 * 1000);
+            // usleep(1000 * 1000);
+            usleep(1000);
         }
     }
 }
@@ -221,32 +234,52 @@ void sut_open(char *dest, int port){
 
 
 void sut_write(char *buf, int size){
+     //add to head of ready queue to immediately continue current thread fxn.
+    struct queue_entry *node = queue_new_node(&(threadarr[curthread].threadid));
+    queue_insert_head(&ready_q, node);
+
     waitinfo wait_info = {.threadid = curthread, .cmd = "write",
                     .arg_pointer = buf, .arg = size};
-    struct queue_entry *node = queue_new_node(&(wait_info));
-    queue_insert_tail(&waiting_q, node);
+    struct queue_entry *node1 = queue_new_node(&(wait_info));
+    queue_insert_tail(&waiting_q, node1);
+   
     waitqcount++;
+    // printf("current thread = %d\n", threadarr[curthread].threadid);
 
     swapcontext(&(threadarr[curthread].threadcontext),
-                &(threadarr[curthread].threadcontext));
+                &parent);
 
 }
 
 
 void sut_close(){
+    struct queue_entry *node = queue_new_node(&(threadarr[curthread].threadid));
+    queue_insert_head(&ready_q, node);
+
     //struct to be placed on waiting queue
     waitinfo wait_info = {.threadid = curthread, .cmd = "close",
+                    .arg_pointer = NULL, .arg = -1};
+    struct queue_entry *node1 = queue_new_node(&(wait_info));
+    queue_insert_tail(&waiting_q, node1);
+    waitqcount++;
+
+    //the cexec thread continues the current task
+    swapcontext(&(threadarr[curthread].threadcontext),
+                &parent);
+}
+
+char *sut_read(){
+    getcontext(&readcxt);
+    int read_thread = curthread;
+     waitinfo wait_info = {.threadid = curthread, .cmd = "read",
                     .arg_pointer = NULL, .arg = -1};
     struct queue_entry *node = queue_new_node(&(wait_info));
     queue_insert_tail(&waiting_q, node);
     waitqcount++;
 
-    //the cexec thread continues the current task
-    swapcontext(&(threadarr[curthread].threadcontext),
-                &(threadarr[curthread].threadcontext));
+    swapcontext(&(threadarr[curthread].threadcontext),&parent);
+    return readbuf;
 }
-
-char *sut_read();
 
 
 
