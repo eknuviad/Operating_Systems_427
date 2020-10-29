@@ -45,7 +45,7 @@ int connect_to_server(const char *host, uint16_t port, int *sockfd) {
   // create a new socket
   *sockfd = socket(AF_INET, SOCK_STREAM, 0);
   if (*sockfd < 0) {
-    // perror("Failed to create a new socket\n");
+    perror("Failed to create a new socket\n");
     return -1;
   }
 
@@ -54,7 +54,7 @@ int connect_to_server(const char *host, uint16_t port, int *sockfd) {
   inet_pton(AF_INET, host, &(server_address.sin_addr.s_addr));
   server_address.sin_port = htons(port);
   if (connect(*sockfd, (struct sockaddr *)&server_address, sizeof(server_address)) < 0) {
-    // perror("Failed to connect to server\n");
+    perror("Failed to connect to server\n");
     return -1;
   }
   return 0;
@@ -71,12 +71,11 @@ void *C_EXEC(void *arg){
         if(numthreads > 0){
             ptr = queue_pop_head(&ready_q);
             curthread = *(int *)ptr ->data;
-            usleep(1000);
-            // getcontext(&parent);//might not be necesary. I want to save the curret context here
+
             pthread_mutex_unlock(&lock);
-            // printf("bscexec run thread = %d\n", curthread);
+            usleep(1000);
+
             swapcontext(&parent,&(threadarr[curthread].threadcontext));
-            // printf("ascexec run thread = %d\n", curthread);
             usleep(1000 * 1000);
 
         }else{
@@ -116,8 +115,8 @@ void *I_EXEC(void *arg){
             }else if (strcmp("write", task->cmd)==0){
                 send_message(sockarr[task->threadid], task->arg_pointer, task->arg); 
                 usleep(1000);
-            }else if(strcmp("close\n", task->cmd)==0){
-                //TODO perform whatever close does
+            }else if(strcmp("close", task->cmd)==0){
+                shutdown(sockarr[task->threadid],SHUT_RDWR);
             }else{
                 usleep(1000);
             }
@@ -243,25 +242,25 @@ void sut_write(char *buf, int size){
 
 void sut_close(){
     pthread_mutex_lock(&lock);
+    //add to head of ready queue to immediately continue current thread fxn.
     struct queue_entry *node = queue_new_node(&(threadarr[curthread].threadid));
     queue_insert_head(&ready_q, node);
     pthread_mutex_unlock(&lock);
-    //struct to be placed on waiting queue
-    waitinfo wait_info = {.threadid = curthread, .cmd = "close",
-                    .arg_pointer = NULL, .arg = -1};
-    struct queue_entry *node1 = queue_new_node(&(wait_info));
-    queue_insert_tail(&waiting_q, node1);
-    waitqcount++;
-    
 
-    //the cexec thread continues the current task
+    waitinfo wait_info = {.threadid = curthread, .cmd = "close",
+                    .arg_pointer = 0, .arg = -1};
+    pthread_mutex_lock(&lock);
+    struct queue_entry *node1 = queue_new_node(&(wait_info));
+    queue_insert_tail(&waiting_q, node1);   
+    waitqcount++;
+    pthread_mutex_unlock(&lock);
+    
     swapcontext(&(threadarr[curthread].threadcontext),
                 &parent);
 }
 
 char *sut_read(){
     //adds task to wait queue
-    int read_thread = curthread;
     waitinfo wait_info = {.threadid = curthread, .cmd = "read",
                     .arg_pointer = read_buf, .arg = strlen(read_buf)};
     pthread_mutex_lock(&lock);
