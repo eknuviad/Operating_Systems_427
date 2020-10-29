@@ -1,10 +1,13 @@
 #include "sut.h"
 #include <stdio.h>
+char dest[256] ="0.0.0.0"; 
+int port = 3001;
 
 void hello0() {
     int i;
-    for (i = 0; i < 100; i++) {
-	printf("Hello world!, this is SUT-Zero \n");
+    // sut_open(dest,port);
+    for (i = 0; i < 5; i++) {
+	printf("Hello world!, this is SUT-Zero %d\n", i);
 	sut_yield();
     }
     sut_exit();
@@ -12,8 +15,9 @@ void hello0() {
 
 void hello1() {
     int i;
-    for (i = 0; i < 100; i++) {
-	printf("Hello world!, this is SUT-One \n");
+    // sut_open(dest,port);
+    for (i = 0; i < 5; i++) {
+	printf("Hello world!, this is SUT-One %d\n", i);
 	sut_yield();
     }
     sut_exit();
@@ -21,8 +25,9 @@ void hello1() {
 
 void hello2() {
     int i;
-    for (i = 0; i < 100; i++) {
-	printf("Hello world!, this is SUT-Two \n");
+    // sut_open(dest,port);
+    for (i = 0; i < 5; i++) {
+	printf("Hello world!, this is SUT-Two %d\n", i);
 	sut_yield();
     }
     sut_exit();
@@ -30,8 +35,9 @@ void hello2() {
 
 void hello3() {
     int i;
-    for (i = 0; i < 10; i++) {
-	printf("Hello world!, this is SUT-Three \n");
+    // sut_open(dest,port);
+    for (i = 0; i < 5; i++) {
+	printf("Hello world!, this is SUT-Three %d\n", i);
 	sut_yield();
 	sut_create(hello0);
     }
