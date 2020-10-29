@@ -28,6 +28,7 @@ int numthreads;
 int numsockts;
 int curthread;
 int waitqcount;
+bool shut_down;
 
 char read_buf[BUFSIZE] = {0};
 
@@ -48,7 +49,6 @@ int connect_to_server(const char *host, uint16_t port, int *sockfd) {
     perror("Failed to create a new socket\n");
     return -1;
   }
-
   // connect to server
   server_address.sin_family = AF_INET;
   inet_pton(AF_INET, host, &(server_address.sin_addr.s_addr));
@@ -62,25 +62,26 @@ int connect_to_server(const char *host, uint16_t port, int *sockfd) {
 
 //cexec thread to handle computation of tasks
 void *C_EXEC(void *arg){
-    // pthread_mutex_t *lock = arg;
     struct queue_entry *ptr;
 
     while(true){
         pthread_mutex_lock(&lock);
-
+    
         if(numthreads > 0){
             ptr = queue_pop_head(&ready_q);
             curthread = *(int *)ptr ->data;
 
             pthread_mutex_unlock(&lock);
-            usleep(1000);
+            usleep(100000);
 
             swapcontext(&parent,&(threadarr[curthread].threadcontext));
-            usleep(1000 * 1000);
+            usleep(100000);
 
+        }else if(numthreads == 0 && shut_down == true){
+            break;
         }else{
             pthread_mutex_unlock(&lock);
-            usleep(1000 * 1000);
+            usleep(100000);
         }
     }
 }
@@ -88,7 +89,6 @@ void *C_EXEC(void *arg){
 //I_EXEC thread to handle io interruptions
 void *I_EXEC(void *arg){
     struct queue_entry *ptr;
-    
 
     while(true){
         if(waitqcount > 0){
@@ -96,8 +96,6 @@ void *I_EXEC(void *arg){
             ptr = queue_pop_head(&waiting_q);
             waitinfo *task = ptr->data;
 
-            usleep(1000);
-            
             if(strcmp("open", task->cmd)==0){
                 connect_to_server(task->arg_pointer, task->arg, &(sockarr[task->threadid]));
                 struct queue_entry *node = queue_new_node(&(threadarr[task->threadid].threadid));
@@ -105,25 +103,27 @@ void *I_EXEC(void *arg){
               
             }else if (strcmp("read", task->cmd)==0){
                
+                // pthread_mutex_lock(&lock);
                 recv_message(sockarr[task->threadid], read_buf, sizeof(read_buf));
                
-                pthread_mutex_lock(&lock);
                 struct queue_entry *node1 = queue_new_node(&(threadarr[task->threadid].threadid));
                 queue_insert_tail(&ready_q, node1);
-                pthread_mutex_unlock(&lock);
+                // pthread_mutex_unlock(&lock);
 
             }else if (strcmp("write", task->cmd)==0){
-                send_message(sockarr[task->threadid], task->arg_pointer, task->arg); 
-                usleep(1000);
+                pthread_mutex_lock(&lock);
+                send_message(sockarr[task->threadid], task->arg_pointer, task->arg);
+                pthread_mutex_unlock(&lock);
             }else if(strcmp("close", task->cmd)==0){
                 shutdown(sockarr[task->threadid],SHUT_RDWR);
             }else{
-                usleep(1000);
+                usleep(100000);
             }
             waitqcount--;
-
+        }else if(numthreads == 0 && shut_down == true){
+            break;
         }else{
-            usleep(1000);
+            usleep(100000);
         }
     }
 }
@@ -136,6 +136,7 @@ void sut_init(){
 
     numthreads = 0;
     numsockts = 0;
+    shut_down = false;
 
 //initialise ready and wait queue
     ready_q = queue_create();
@@ -184,6 +185,9 @@ bool sut_create(sut_task_f fn){
 }
 
 void sut_shutdown(){
+    pthread_mutex_lock(&lock);
+    shut_down = true;
+    pthread_mutex_unlock(&lock);
     pthread_join(cexec_thread_handle, NULL);
     pthread_join(iexec_thread_handle, NULL);
 }
