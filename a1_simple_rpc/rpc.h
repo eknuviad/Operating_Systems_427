@@ -10,10 +10,11 @@ typedef struct message_t{
     char args[ARGS_LENGTH];
 }message_t;
 
+
 typedef struct request_msg{
     char cmd[BUFSIZE];
-    char x[BUFSIZE];
-    char y[BUFSIZE];
+    char params[BUFSIZE];
+  
 }request_msg;
 
 typedef struct response_msg{
