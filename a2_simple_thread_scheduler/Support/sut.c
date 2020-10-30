@@ -41,13 +41,11 @@ ssize_t recv_message(int sockfd, char *buf, size_t len) {
   return recv(sockfd, buf, len, 0);
 }
 
-
 int connect_to_server(const char *host, uint16_t port, int *sockfd) {
   struct sockaddr_in server_address = { 0 };
   // create a new socket
   *sockfd = socket(AF_INET, SOCK_STREAM, 0);
   if (*sockfd < 0) {
-    perror("Failed to create a new socket\n");
     return -1;
   }
   // connect to server
@@ -55,7 +53,6 @@ int connect_to_server(const char *host, uint16_t port, int *sockfd) {
   inet_pton(AF_INET, host, &(server_address.sin_addr.s_addr));
   server_address.sin_port = htons(port);
   if (connect(*sockfd, (struct sockaddr *)&server_address, sizeof(server_address)) < 0) {
-    perror("Failed to connect to server\n");
     return -1;
   }
   return 0;
@@ -75,8 +72,9 @@ void *C_EXEC(void *arg){
             usleep(100);
         }else if(numthreads == 0 && shut_down == true){
             pthread_mutex_unlock(&lock);
-            break;
+            break; //exit thread
         }else{
+            //release lock for new tasks to be added to queue
             pthread_mutex_unlock(&lock);
             usleep(100);
         }
@@ -90,7 +88,6 @@ void *I_EXEC(void *arg){
 
     while(true){
         pthread_mutex_lock(&lock);
-        // printf("checkwait %d\n", queue_peek_front(&waiting_q) !=NULL);
         if(waitqcount > 0){
             ptr = queue_pop_head(&waiting_q);
             waitinfo *task = ptr->data;
@@ -113,8 +110,6 @@ void *I_EXEC(void *arg){
                 struct queue_entry *node1 = queue_new_node(&(threadarr[task->threadid].threadid));
                 queue_insert_tail(&ready_q, node1);
                 pthread_mutex_unlock(&lock);
-                // dumcount++;
-                // printf("dumcout %d\n", dumcount);
 
             }else if (strcmp("write", task->cmd)==0){
                 pthread_mutex_lock(&lock);
@@ -123,13 +118,13 @@ void *I_EXEC(void *arg){
                 pthread_mutex_unlock(&lock);
                 
               
-            }else{//instruction was close
+            }else{//instruction to close socket connection
                 shutdown(sockarr[task->threadid],SHUT_RDWR);
             }
             waitqcount--;
         }else if(numthreads == 0 && shut_down == true){
             pthread_mutex_unlock(&lock);
-            break;
+            break;//exit thread
         }else{
             pthread_mutex_unlock(&lock);
         }
@@ -158,7 +153,6 @@ bool sut_create(sut_task_f fn){
     threaddesc *tdescptr;
     int *sockdescptr;
     if (numthreads >= 32) {
-		printf("FATAL: Maximum thread limit reached... creation failed! \n");
 		return false;
 	}
     tdescptr = &(threadarr[numthreads]);
@@ -170,7 +164,6 @@ bool sut_create(sut_task_f fn){
 	tdescptr->threadcontext.uc_link = 0;
 	tdescptr->threadcontext.uc_stack.ss_flags = 0;
 	tdescptr->threadfunc = fn;
-
 	makecontext(&(tdescptr->threadcontext), fn, 1, tdescptr);  
     struct queue_entry *node = queue_new_node(&(tdescptr->threadid));
     queue_insert_tail(&ready_q, node); 
@@ -186,6 +179,7 @@ void sut_shutdown(){
     pthread_mutex_lock(&lock);
     shut_down = true;
     pthread_mutex_unlock(&lock);
+    //wait for termination of threads
     pthread_join(cexec_thread_handle, NULL);
     pthread_join(iexec_thread_handle, NULL);
 }
@@ -195,22 +189,21 @@ void sut_yield(){
     struct queue_entry *node = queue_new_node(&(threadarr[curthread].threadid));
     queue_insert_tail(&ready_q, node);
     pthread_mutex_unlock(&lock);
+    //save currrent state and return to continue scheduling
     swapcontext(&(threadarr[curthread].threadcontext),&parent);
 }
 
 void sut_exit(){
-   
     pthread_mutex_lock(&lock);
     numthreads--;
     pthread_mutex_unlock(&lock);
-   
-    swapcontext(&(threadarr[curthread].threadcontext),&parent); //schedule next task in queue of ready tasks
+    //schedule next task in queue of ready tasks
+    swapcontext(&(threadarr[curthread].threadcontext),&parent); 
 }
 
 void sut_open(char *dest, int port){
     waitinfo wait_info = {.threadid = curthread, .cmd = "open",
                     .arg_pointer = dest, .arg = port};
-
     pthread_mutex_lock(&lock);
     struct queue_entry *node = queue_new_node(&(wait_info));
     queue_insert_tail(&waiting_q, node);
@@ -224,8 +217,6 @@ void sut_open(char *dest, int port){
 
 
 void sut_write(char *buf, int size){
-    
-
     waitinfo wait_info = {.threadid = curthread, .cmd = "write",
                     .arg_pointer = buf, .arg = size};
     pthread_mutex_lock(&lock);
@@ -245,7 +236,6 @@ void sut_write(char *buf, int size){
 
     swapcontext(&(threadarr[curthread].threadcontext),
                 &parent);
-
 }
 
 
@@ -256,8 +246,7 @@ void sut_close(){
     struct queue_entry *node1 = queue_new_node(&(wait_info));
     queue_insert_tail(&waiting_q, node1);   
     waitqcount++;
-    pthread_mutex_unlock(&lock);
-    
+    pthread_mutex_unlock(&lock);   
 }
 
 char *sut_read(){
@@ -271,7 +260,6 @@ char *sut_read(){
     waitqcount++;
     pthread_mutex_unlock(&lock);
     getcontext(&(threadarr[curthread].threadcontext));
-
     //save state and dont resume until readbuf has a value
     swapcontext(&(threadarr[curthread].threadcontext), &parent);
 
