@@ -6,7 +6,7 @@ int port = 3001;
 void hello1() {
     int i;
     // sut_open(dest, port);
-    for (i = 0; i < 10; i++) {
+    for (i = 0; i < 100; i++) {
 	printf("Hello world!, this is SUT-One %d\n", i);
 	sut_yield();
     }
@@ -16,7 +16,7 @@ void hello1() {
 
 void hello2() {
     int i;
-    for (i = 0; i < 10; i++) {
+    for (i = 0; i < 100; i++) {
 	printf("Hello world!, this is SUT-Two %d\n", i);
 	sut_yield();
     }

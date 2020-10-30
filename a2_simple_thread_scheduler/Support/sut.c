@@ -13,7 +13,7 @@
 
 threaddesc threadarr[MAX_THREADS];
 int sockarr[MAX_THREADS];
-// pthreads global 
+//threads global
 pthread_t cexec_thread_handle;
 pthread_t iexec_thread_handle;
 pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
@@ -29,7 +29,6 @@ int numsockts;
 int curthread;
 int waitqcount;
 bool shut_down;
-
 
 char read_buf[BUFSIZE] = {0};
 
@@ -58,6 +57,29 @@ int connect_to_server(const char *host, uint16_t port, int *sockfd) {
   return 0;
 }
 
+void transfer_to_io(waitinfo *io_task){
+    pthread_mutex_lock(&lock);
+    struct queue_entry *node = queue_new_node(io_task);
+    queue_insert_tail(&waiting_q, node);
+    waitqcount++;
+    pthread_mutex_unlock(&lock);
+}
+
+void transfer_to_task_q_tail(int id){
+    pthread_mutex_lock(&lock);
+    struct queue_entry *node = queue_new_node(&(threadarr[id].threadid));
+    queue_insert_tail(&ready_q, node);
+    pthread_mutex_unlock(&lock);
+}
+
+void transfer_to_task_q_head(int id){
+     pthread_mutex_lock(&lock);
+    struct queue_entry *node = queue_new_node(&(threadarr[id].threadid));
+    queue_insert_head(&ready_q, node);
+    pthread_mutex_unlock(&lock);
+
+}
+
 //cexec thread to handle computation of tasks
 void *C_EXEC(void *arg){
     struct queue_entry *ptr;
@@ -67,16 +89,16 @@ void *C_EXEC(void *arg){
             ptr = queue_pop_head(&ready_q);
             curthread = *(int *)ptr ->data;
             pthread_mutex_unlock(&lock);
-            usleep(100);
+            usleep(10000);
             swapcontext(&parent,&(threadarr[curthread].threadcontext));
-            usleep(100);
+            usleep(10000);
         }else if(numthreads == 0 && shut_down == true){
             pthread_mutex_unlock(&lock);
             break; //exit thread
         }else{
             //release lock for new tasks to be added to queue
             pthread_mutex_unlock(&lock);
-            usleep(100);
+            usleep(10000);
         }
     }
 }
@@ -84,8 +106,6 @@ void *C_EXEC(void *arg){
 //I_EXEC thread to handle io interruptions
 void *I_EXEC(void *arg){
     struct queue_entry *ptr;
-    // int num =0;
-
     while(true){
         pthread_mutex_lock(&lock);
         if(waitqcount > 0){
@@ -97,15 +117,15 @@ void *I_EXEC(void *arg){
                 //io thread performs connection to server
                 pthread_mutex_lock(&lock);
                 connect_to_server(task->arg_pointer, task->arg, &(sockarr[task->threadid]));
-                struct queue_entry *node = queue_new_node(&(threadarr[task->threadid].threadid));
-                queue_insert_tail(&ready_q, node);
                 pthread_mutex_unlock(&lock);
+            
+                transfer_to_task_q_tail(task->threadid);
               
             }else if (strcmp("read", task->cmd)==0){
                 usleep(1000);
                 recv_message(sockarr[task->threadid], read_buf, sizeof(read_buf));
-               
 
+                //transfer back to ready queue
                 pthread_mutex_lock(&lock);
                 struct queue_entry *node1 = queue_new_node(&(threadarr[task->threadid].threadid));
                 queue_insert_tail(&ready_q, node1);
@@ -115,8 +135,7 @@ void *I_EXEC(void *arg){
                 pthread_mutex_lock(&lock);
                 usleep(1000);
                 send_message(sockarr[task->threadid], task->arg_pointer, task->arg);
-                pthread_mutex_unlock(&lock);
-                
+                pthread_mutex_unlock(&lock);    
               
             }else{//instruction to close socket connection
                 shutdown(sockarr[task->threadid],SHUT_RDWR);
@@ -127,6 +146,8 @@ void *I_EXEC(void *arg){
             break;//exit thread
         }else{
             pthread_mutex_unlock(&lock);
+            //wait for tasks to be added to waitqueue
+            usleep(1000);
         }
     }
 }
@@ -144,8 +165,6 @@ void sut_init(){
     waiting_q =  queue_create();
     queue_init(&waiting_q); 
 }
-
-
 
 //Method to add function to a new context to be executed
 bool sut_create(sut_task_f fn){
@@ -185,10 +204,7 @@ void sut_shutdown(){
 }
 
 void sut_yield(){
-    pthread_mutex_lock(&lock);
-    struct queue_entry *node = queue_new_node(&(threadarr[curthread].threadid));
-    queue_insert_tail(&ready_q, node);
-    pthread_mutex_unlock(&lock);
+    transfer_to_task_q_tail(curthread);
     //save currrent state and return to continue scheduling
     swapcontext(&(threadarr[curthread].threadcontext),&parent);
 }
@@ -204,68 +220,37 @@ void sut_exit(){
 void sut_open(char *dest, int port){
     waitinfo wait_info = {.threadid = curthread, .cmd = "open",
                     .arg_pointer = dest, .arg = port};
-    pthread_mutex_lock(&lock);
-    struct queue_entry *node = queue_new_node(&(wait_info));
-    queue_insert_tail(&waiting_q, node);
-    waitqcount++;
-    pthread_mutex_unlock(&lock);
-
+    transfer_to_io(&wait_info);
     swapcontext(&(threadarr[curthread].threadcontext),&parent);
-
 }
-
-
 
 void sut_write(char *buf, int size){
     waitinfo wait_info = {.threadid = curthread, .cmd = "write",
                     .arg_pointer = buf, .arg = size};
-    pthread_mutex_lock(&lock);
-    struct queue_entry *node1 = queue_new_node(&(wait_info));
-    queue_insert_tail(&waiting_q, node1);   
-    waitqcount++;
-    pthread_mutex_unlock(&lock);
-    
-    //get current state of task
+    transfer_to_io(&wait_info); 
     getcontext(&(threadarr[curthread].threadcontext));
-
-    pthread_mutex_lock(&lock);
-    //add to head of ready queue to immediately continue current thread fxn.
-    struct queue_entry *node = queue_new_node(&(threadarr[curthread].threadid));
-    queue_insert_head(&ready_q, node);
-    pthread_mutex_unlock(&lock);
-
+    // add to head of ready queue to immediately continue current thread fxn.
+    transfer_to_task_q_head(curthread);
     swapcontext(&(threadarr[curthread].threadcontext),
                 &parent);
 }
 
-
 void sut_close(){
     waitinfo wait_info = {.threadid = curthread, .cmd = "close",
-                    .arg_pointer = 0, .arg = -1};
-    pthread_mutex_lock(&lock);
-    struct queue_entry *node1 = queue_new_node(&(wait_info));
-    queue_insert_tail(&waiting_q, node1);   
-    waitqcount++;
-    pthread_mutex_unlock(&lock);   
+                    .arg_pointer = 0, .arg = -1};  
+    transfer_to_io(&wait_info); //let io thread handle the task
 }
 
 char *sut_read(){
-    //adds task to wait queue
     char* buf_copy = (char*) malloc (sizeof(read_buf));
     waitinfo wait_info = {.threadid = curthread, .cmd = "read",
                     .arg_pointer = read_buf, .arg = strlen(read_buf)};
-    pthread_mutex_lock(&lock);
-    struct queue_entry *node = queue_new_node(&(wait_info));
-    queue_insert_tail(&waiting_q, node);
-    waitqcount++;
-    pthread_mutex_unlock(&lock);
+    transfer_to_io(&wait_info);
     getcontext(&(threadarr[curthread].threadcontext));
     //save state and dont resume until readbuf has a value
     swapcontext(&(threadarr[curthread].threadcontext), &parent);
-
     //Fxn swaps back here after io is complete to get read_buf value
     strcpy(buf_copy, read_buf);
-
     return buf_copy;
 }
 
