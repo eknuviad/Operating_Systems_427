@@ -11,7 +11,7 @@ void hello1() {
     // printf("above sut open\n");
     sut_open(dest,port);
     // printf("below sut open\n");
-    for (i = 0; i < 20; i++) {
+    for (i = 0; i < 100; i++) {
     // printf("writing %d\n", i);
 	sprintf(sbuf, "echo Hello world!, message from SUT-One i = %d \n", i);
 	sut_write(sbuf, strlen(sbuf));
@@ -29,7 +29,7 @@ void hello1() {
 
 void hello2() {
     int i;
-    for (i = 0; i < 20; i++) {
+    for (i = 0; i < 100; i++) {
 	printf("Hello world!, this is SUT-Two i = %d\n", i);
 	sut_yield();
     }
