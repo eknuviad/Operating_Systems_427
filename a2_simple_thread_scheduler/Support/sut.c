@@ -17,19 +17,16 @@ int sockarr[MAX_THREADS];
 pthread_t cexec_thread_handle;
 pthread_t iexec_thread_handle;
 pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-
 //schedule context
 ucontext_t parent;
-
+//data structures in thread manipulations
 struct queue ready_q;
 struct queue waiting_q;
 struct waitinfo *cur_wait;
-int numthreads;
-int numsockts;
-int curthread;
-int waitqcount;
+//variables to track progress of tasks
+int numthreads, numsockts, curthread, waitqcount;
 bool shut_down;
-
+//buffer to hold read value from socket
 char read_buf[BUFSIZE] = {0};
 
 
@@ -80,7 +77,6 @@ void transfer_to_task_q_head(int id){
 
 }
 
-//cexec thread to handle computation of tasks
 void *C_EXEC(void *arg){
     struct queue_entry *ptr;
     while(true){
@@ -103,7 +99,6 @@ void *C_EXEC(void *arg){
     }
 }
 
-//I_EXEC thread to handle io interruptions
 void *I_EXEC(void *arg){
     struct queue_entry *ptr;
     while(true){
@@ -152,7 +147,6 @@ void *I_EXEC(void *arg){
     }
 }
 
-//Method to initialise C_EXEC and IEXEC threads and queues
 void sut_init(){
     pthread_create(&cexec_thread_handle,NULL, C_EXEC, &lock);
     pthread_create(&iexec_thread_handle,NULL, I_EXEC, &lock);
@@ -166,12 +160,11 @@ void sut_init(){
     queue_init(&waiting_q); 
 }
 
-//Method to add function to a new context to be executed
 bool sut_create(sut_task_f fn){
     pthread_mutex_lock(&lock);
     threaddesc *tdescptr;
     int *sockdescptr;
-    if (numthreads >= 32) {
+    if (numthreads >= 50) {
 		return false;
 	}
     tdescptr = &(threadarr[numthreads]);
