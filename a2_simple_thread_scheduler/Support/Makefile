@@ -1,12 +1,12 @@
 # .DEFAULT_GOAL=all
 
 CC=gcc
+CFLAGS=-fsanitize=signed-integer-overflow -fsanitize=undefined -g -std=gnu99 -O2 -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -Wno-unused-variable -Wshadow
 
-CLIENT=sut.o
+SUT=sut.o
 
 sut: sut.c 
-	$(CC) -o $(CLIENT) -c sut.c 
-
+	$(CC) -o $(SUT) -c sut.c 
 clean:
-	rm -rf $(CLIENT)
+	rm -rf $(SUT)
 
