@@ -23,22 +23,23 @@
 #include "sma.h" // Please add any libraries you plan to use inside this file
 
 /* Definitions*/
-#define MAX_TOP_FREE (128 * 1024)								// Max top free block size = 128 Kbytes
+#define MAX_TOP_FREE (128 * 1024) // Max top free block size = 128 Kbytes
+//	TODO: Change the Header size if required
 #define FREE_BLOCK_HEADER_SIZE 2 * sizeof(char *) + sizeof(int) // Size of the Header in a free memory block
 //	TODO: Add constants here
 
-typedef enum
+typedef enum //	Policy type definition
 {
 	WORST,
 	NEXT
 } Policy;
 
 char *sma_malloc_error;
-void *freeListHead = NULL;
-void *freeListTail = NULL;
-unsigned long totalAllocatedSize = 0;
-unsigned long totalFreeSize = 0;
-Policy currentPolicy = WORST;
+void *freeListHead = NULL;			  //	The pointer to the HEAD of the doubly linked free memory list
+void *freeListTail = NULL;			  //	The pointer to the TAIL of the doubly linked free memory list
+unsigned long totalAllocatedSize = 0; //	Total Allocated memory in Bytes
+unsigned long totalFreeSize = 0;	  //	Total Free memory in Bytes in the free memory list
+Policy currentPolicy = WORST;		  //	Current Policy
 //	TODO: Add any global variables here
 
 /*
@@ -139,7 +140,7 @@ void sma_mallopt(int policy)
  *	Funcation Name: sma_mallinfo
  *	Input type:		void
  * 	Output type:	void
- * 	Description:	Prints statistics about the memory allocation by SMA so far.
+ * 	Description:	Prints statistics about current memory allocation by SMA.
  */
 void sma_mallinfo()
 {
@@ -170,7 +171,8 @@ void *sma_realloc(void *ptr, int size)
 	// Hint:	Check if you need to expand or contract the memory. If new size is smaller, then
 	//			chop off the current allocated memory and add to the free list. If new size is bigger
 	//			then check if there is sufficient adjacent free space to expand, otherwise find a new block
-	//			like sma_malloc
+	//			like sma_malloc.
+	//			Should not accept a NULL pointer, and the size should be greater than 0.
 }
 
 /*
@@ -178,8 +180,6 @@ void *sma_realloc(void *ptr, int size)
  *	Private Functions for SMA
  * =====================================================================================
  */
-
-//	TODO: Implement all your helper functions here (You need to declare them in helper.h)
 
 /*
  *	Funcation Name: allocate_pBrk
@@ -245,7 +245,7 @@ void *allocate_worst_fit(int size)
 	//	TODO: 	Allocate memory by using Worst Fit Policy
 	//	Hint:	Start off with the freeListHead and iterate through the entire list to get the largest block
 
-	//	Checks if appropriate found is found.
+	//	Checks if appropriate block is found.
 	if (blockFound)
 	{
 		//	Allocates the Memory Block
@@ -253,7 +253,7 @@ void *allocate_worst_fit(int size)
 	}
 	else
 	{
-		//	Assigns invalid valid
+		//	Assigns invalid address if appropriate block not found in free list
 		worstBlock = (void *)-2;
 	}
 
@@ -284,7 +284,7 @@ void *allocate_next_fit(int size)
 	}
 	else
 	{
-		//	Assigns invalid valid
+		//	Assigns invalid address if appropriate block not found in free list
 		nextBlock = (void *)-2;
 	}
 
@@ -295,26 +295,29 @@ void *allocate_next_fit(int size)
  *	Funcation Name: allocate_block
  *	Input type:		void*, int, int, int
  * 	Output type:	void
- * 	Description:	Allocates memory using Next Fit from the free memory list
+ * 	Description:	Performs routine operations for allocating a memory block
  */
 void allocate_block(void *newBlock, int size, int excessSize, int fromFreeList)
 {
-	void *excessFreeBlock;
+	void *excessFreeBlock; //	pointer for any excess free block
 	int addFreeBlock;
 
 	// 	Checks if excess free size is big enough to be added to the free memory list
 	//	Helps to reduce external fragmentation
+
+	//	TODO: Adjust the condition based on your Head and Tail size (depends on your TAG system)
+	//	Hint: Might want to have a minimum size greater than the Head/Tail sizes
 	addFreeBlock = excessSize > FREE_BLOCK_HEADER_SIZE;
 
 	//	If excess free size is big enough
 	if (addFreeBlock)
 	{
-		//	TODO: Create a free block using the excess memory size, then assign it to the newBlock
+		//	TODO: Create a free block using the excess memory size, then assign it to the Excess Free Block
 
 		//	Checks if the new block was allocated from the free memory list
 		if (fromFreeList)
 		{
-			//	Removes new block and adds excess free block to the free list
+			//	Removes new block and adds the excess free block to the free list
 			replace_block_freeList(newBlock, excessFreeBlock);
 		}
 		else
@@ -326,12 +329,12 @@ void allocate_block(void *newBlock, int size, int excessSize, int fromFreeList)
 	//	Otherwise add the excess memory to the new block
 	else
 	{
-		//	TODO: Add excessSize to size and assign it to the newBlock
+		//	TODO: Add excessSize to size and assign it to the new Block
 
 		//	Checks if the new block was allocated from the free memory list
 		if (fromFreeList)
 		{
-			//	Removes that block from the free list
+			//	Removes the new block from the free list
 			remove_block_freeList(newBlock);
 		}
 	}
@@ -356,7 +359,7 @@ void replace_block_freeList(void *oldBlock, void *newBlock)
  *	Funcation Name: add_block_freeList
  *	Input type:		void*
  * 	Output type:	void
- * 	Description:	Adds a memory block from the the free memory list
+ * 	Description:	Adds a memory block to the the free memory list
  */
 void add_block_freeList(void *block)
 {
