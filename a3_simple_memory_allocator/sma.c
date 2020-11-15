@@ -34,7 +34,10 @@ typedef enum //	Policy type definition
 	NEXT
 } Policy;
 
+int free_block_size;
+
 char *sma_malloc_error;
+void *last_allocated_ptr;
 void *freeListHead = NULL;			  //	The pointer to the HEAD of the doubly linked free memory list
 void *freeListTail = NULL;			  //	The pointer to the TAIL of the doubly linked free memory list
 unsigned long totalAllocatedSize = 0; //	Total Allocated memory in Bytes
@@ -88,6 +91,8 @@ void *sma_malloc(int size)
 
 	// Updates SMA Info
 	totalAllocatedSize += size;
+	
+	brk(sbrk(0));
 
 	return pMemory;
 }
@@ -190,11 +195,20 @@ void *sma_realloc(void *ptr, int size)
 void *allocate_pBrk(int size)
 {
 	void *newBlock = NULL;
-	int excessSize;
+	int excessSize = FREE_BLOCK_HEADER_SIZE + size;
 
 	//	TODO: 	Allocate memory by incrementing the Program Break by calling sbrk() or brk()
 	//	Hint:	Getting an exact "size" of memory might not be the best idea. Why?
 	//			Also, if you are getting a larger memory, you need to put the excess in the free list
+
+	sbrk(sizeof(int) + size + excessSize);
+	void  *cur_ptr = sbrk(0) - (sizeof(int) + size + excessSize);
+	int *length_ptr = (int*) cur_ptr;
+	brk(*length_ptr + 1);
+	*length_ptr = size;
+	cur_ptr = cur_ptr + (size + (*length_ptr + 1));
+	last_allocated_ptr = cur_ptr;
+	newBlock = sbrk(0) - excessSize - size;
 
 	//	Allocates the Memory Block
 	allocate_block(newBlock, size, excessSize, 0);
@@ -317,6 +331,9 @@ void allocate_block(void *newBlock, int size, int excessSize, int fromFreeList)
 	{
 		//	TODO: Create a free block using the excess memory size, then assign it to the Excess Free Block
 
+		excessFreeBlock = last_allocated_ptr;
+		free_block_size = size;
+
 		//	Checks if the new block was allocated from the free memory list
 		if (fromFreeList)
 		{
@@ -372,6 +389,20 @@ void add_block_freeList(void *block)
 	//			Also, you would need to check if merging with the "adjacent" blocks is possible or not.
 	//			Merging would be tideous. Check adjacent blocks, then also check if the merged
 	//			block is at the top and is bigger than the largest free block allowed (128kB).
+
+	if(freeListHead == NULL){
+		freeListHead = last_allocated_ptr;
+		int *length_ptr = (int *) freeListHead;
+		brk(*length_ptr + 1);
+		char *free_ptr = (char *) freeListHead;
+		brk(*free_ptr + 2*sizeof(char));
+
+		*length_ptr = free_block_size;
+		*free_ptr = NULL;
+		*(free_ptr + sizeof(char)) = NULL;
+	}else{
+		//need to add to tail of free list;
+	}
 
 	//	Updates SMA info
 	totalAllocatedSize -= get_blockSize(block);
