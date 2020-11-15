@@ -243,7 +243,8 @@ void *allocate_worst_fit(int size)
 	int blockFound = 0;
 
 	//	TODO: 	Allocate memory by using Worst Fit Policy
-	//	Hint:	Start off with the freeListHead and iterate through the entire list to get the largest block
+	//	Hint:	Start off with the freeListHead and iterate through the entire list to 
+	//			get the largest block
 
 	//	Checks if appropriate block is found.
 	if (blockFound)
@@ -273,8 +274,10 @@ void *allocate_next_fit(int size)
 	int blockFound = 0;
 
 	//	TODO: 	Allocate memory by using Next Fit Policy
-	//	Hint:	Start off with the freeListHead, and keep track of the current position in the free memory list.
-	//			The next time you allocate, it should start from the current position.
+	//	Hint:	You should use a global pointer to keep track of your last allocated memory address, and 
+	//			allocate free blocks that come after that address (i.e. on top of it). Once you reach 
+	//			Program Break, you start from the beginning of your heap, as in with the free block with
+	//			the smallest address)
 
 	//	Checks if appropriate found is found.
 	if (blockFound)
