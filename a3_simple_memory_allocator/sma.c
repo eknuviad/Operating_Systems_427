@@ -45,11 +45,28 @@ unsigned long totalFreeSize = 0;	  //	Total Free memory in Bytes in the free mem
 Policy currentPolicy = WORST;		  //	Current Policy
 //	TODO: Add any global variables here
 
+
+
+
+
+
 /*
  * =====================================================================================
  *	Public Functions for SMA
  * =====================================================================================
  */
+
+
+
+void add_length_header(int size){
+	// char str[60];
+	void *cur_ptr = sbrk(0);
+	int *length_ptr = (int *) cur_ptr;
+	*length_ptr = size;
+	// assert(*length_ptr == size);
+	// sprintf(str, "length is %ls", length_ptr);
+	// puts(str);
+}
 
 /*
  *	Funcation Name: sma_malloc
@@ -195,26 +212,33 @@ void *sma_realloc(void *ptr, int size)
 void *allocate_pBrk(int size)
 {
 	void *newBlock = NULL;
-	int excessSize = FREE_BLOCK_HEADER_SIZE + size;
+	int excessSize = size;
 
 	//	TODO: 	Allocate memory by incrementing the Program Break by calling sbrk() or brk()
 	//	Hint:	Getting an exact "size" of memory might not be the best idea. Why?
 	//			Also, if you are getting a larger memory, you need to put the excess in the free list
 
-	sbrk(sizeof(int) + size + excessSize);
-	void  *cur_ptr = sbrk(0) - (sizeof(int) + size + excessSize);
-	int *length_ptr = (int*) cur_ptr;
-	brk(*length_ptr + 1);
-	*length_ptr = size;
-	cur_ptr = cur_ptr + (size + (*length_ptr + 1));
-	last_allocated_ptr = cur_ptr;
-	newBlock = sbrk(0) - excessSize - size;
+	// sbrk(sizeof(int) + size + excessSize);
+	// void  *cur_ptr = sbrk(0) - (sizeof(int) + size + excessSize);
+	// int *length_ptr = (int*) cur_ptr;
+	// brk(*length_ptr + 1);
+	// *length_ptr = size;
+	// cur_ptr = cur_ptr + (size + (*length_ptr + 1));
+	// last_allocated_ptr = cur_ptr;
+	// newBlock = sbrk(0) - excessSize - size;
+	sbrk(sizeof(int));
+	brk(sbrk(0));
+	add_length_header(size);
+	newBlock = sbrk(0);
 
 	//	Allocates the Memory Block
+
 	allocate_block(newBlock, size, excessSize, 0);
 
 	return newBlock;
 }
+
+
 
 /*
  *	Funcation Name: allocate_freeList
@@ -331,14 +355,23 @@ void allocate_block(void *newBlock, int size, int excessSize, int fromFreeList)
 	{
 		//	TODO: Create a free block using the excess memory size, then assign it to the Excess Free Block
 
+		sbrk(size);
+		last_allocated_ptr = sbrk(0);
 		excessFreeBlock = last_allocated_ptr;
-		free_block_size = size;
+		brk(sbrk(0));
+
+		sbrk(sizeof(int));
+		brk(sbrk(0));
+		add_length_header(excessSize);
+		excessFreeBlock = sbrk(0);
+		//might what to add length tag at the end of block here that will have the length 
+	
 
 		//	Checks if the new block was allocated from the free memory list
 		if (fromFreeList)
 		{
 			//	Removes new block and adds the excess free block to the free list
-			replace_block_freeList(newBlock, excessFreeBlock);
+			replace_block_freeList(newBlock, excessFreeBlock); //value just after L passed here
 		}
 		else
 		{
@@ -350,6 +383,9 @@ void allocate_block(void *newBlock, int size, int excessSize, int fromFreeList)
 	else
 	{
 		//	TODO: Add excessSize to size and assign it to the new Block
+			sbrk(size + excessSize);
+			last_allocated_ptr = sbrk(0);
+			brk(sbrk(0));
 
 		//	Checks if the new block was allocated from the free memory list
 		if (fromFreeList)
@@ -369,6 +405,25 @@ void allocate_block(void *newBlock, int size, int excessSize, int fromFreeList)
 void replace_block_freeList(void *oldBlock, void *newBlock)
 {
 	//	TODO: Replace the old block with the new block
+
+	//Im doing this replacement by just migrating the pointers
+	//of the old block(P,N) to the new block oldblock and newblock are initially
+	//pointig just past the length size variable
+	char *new_P_ptr;
+	char *new_N_ptr;
+
+	void *old_ptr = oldBlock;
+	char *ptr = (char *) old_ptr;
+
+	new_P_ptr = ptr;
+	new_N_ptr = (ptr + 1);
+
+	char *new_ptr = (char *) newBlock;
+	*new_ptr = new_P_ptr;
+	*(new_ptr + 1) = new_N_ptr;
+
+
+
 
 	//	Updates SMA info
 	totalAllocatedSize += (get_blockSize(oldBlock) - get_blockSize(newBlock));
@@ -391,17 +446,23 @@ void add_block_freeList(void *block)
 	//			block is at the top and is bigger than the largest free block allowed (128kB).
 
 	if(freeListHead == NULL){
-		freeListHead = last_allocated_ptr;
-		int *length_ptr = (int *) freeListHead;
-		brk(*length_ptr + 1);
-		char *free_ptr = (char *) freeListHead;
-		brk(*free_ptr + 2*sizeof(char));
-
-		*length_ptr = free_block_size;
-		*free_ptr = NULL;
-		*(free_ptr + sizeof(char)) = NULL;
+		freeListHead = block;
+		// brk(*length_ptr + 1);
+		char *free_P_ptr = (char *) freeListHead;
+		brk(free_P_ptr + 2);
+		*free_P_ptr = NULL;
+		*(free_P_ptr + 1) = NULL; //representing the N pointer
 	}else{
 		//need to add to tail of free list;
+
+		char *free_P_ptr = (char *) block;
+		brk(free_P_ptr + 2);
+		*free_P_ptr = freeListTail;
+		*(free_P_ptr + 1) = NULL; //representing the N pointer
+
+		char *N_tail_replace = (char *) freeListTail;
+		*(N_tail_replace + 1) = block; //ensure the N pointer of origional tail 
+										//is changed to point to new block
 	}
 
 	//	Updates SMA info
