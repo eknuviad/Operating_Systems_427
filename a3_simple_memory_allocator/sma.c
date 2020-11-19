@@ -25,9 +25,10 @@
 /* Definitions*/
 #define MAX_TOP_FREE (128 * 1024) // Max top free block size = 128 Kbytes
 //	TODO: Change the Header size if required
-#define FREE_BLOCK_HEADER_SIZE 2 * sizeof(char *) + sizeof(int) // Size of the Header in a free memory block
+#define FREE_BLOCK_HEADER_SIZE 2 * sizeof(char *) + 2*sizeof(int) // Size of the Header in a free memory block
 //	TODO: Add constants here
-
+#define BLOCK_TAIL_SIZE 2*sizeof(int) // Size of the Tail in a block of memory
+//	TODO: Add constants here
 typedef enum //	Policy type definition
 {
 	WORST,
@@ -38,8 +39,8 @@ int free_block_size;
 
 char *sma_malloc_error;
 void *last_allocated_ptr;
-void *freeListHead = NULL;			  //	The pointer to the HEAD of the doubly linked free memory list
-void *freeListTail = NULL;			  //	The pointer to the TAIL of the doubly linked free memory list
+char *freeListHead = NULL;			  //	The pointer to the HEAD of the doubly linked free memory list
+char *freeListTail = NULL;			  //	The pointer to the TAIL of the doubly linked free memory list
 unsigned long totalAllocatedSize = 0; //	Total Allocated memory in Bytes
 unsigned long totalFreeSize = 0;	  //	Total Free memory in Bytes in the free memory list
 Policy currentPolicy = WORST;		  //	Current Policy
@@ -58,14 +59,15 @@ Policy currentPolicy = WORST;		  //	Current Policy
 
 
 
-void add_length_header(int size){
-	// char str[60];
-	void *cur_ptr = sbrk(0);
-	int *length_ptr = (int *) cur_ptr;
-	*length_ptr = size;
-	// assert(*length_ptr == size);
-	// sprintf(str, "length is %ls", length_ptr);
-	// puts(str);
+void add_TAG_LEN_header(void *ptr, int size, int tag){
+	
+	//attach ->TL to head
+	void *cur_ptr = ptr; //ptr should be right below T
+	int *head_ptr = (int *) cur_ptr;
+	*head_ptr = tag;
+	head_ptr ++; //move to size column
+	*head_ptr = size;
+	
 }
 
 /*
@@ -218,22 +220,21 @@ void *allocate_pBrk(int size)
 	//	Hint:	Getting an exact "size" of memory might not be the best idea. Why?
 	//			Also, if you are getting a larger memory, you need to put the excess in the free list
 
-	// sbrk(sizeof(int) + size + excessSize);
-	// void  *cur_ptr = sbrk(0) - (sizeof(int) + size + excessSize);
-	// int *length_ptr = (int*) cur_ptr;
-	// brk(*length_ptr + 1);
-	// *length_ptr = size;
-	// cur_ptr = cur_ptr + (size + (*length_ptr + 1));
-	// last_allocated_ptr = cur_ptr;
-	// newBlock = sbrk(0) - excessSize - size;
-	sbrk(sizeof(int));
+
+	sbrk(2*sizeof(int));
 	brk(sbrk(0));
-	add_length_header(size);
+	add_TAG_LEN_header(sbrk(0), size, 1);
 	newBlock = sbrk(0);
 
+	sbrk(size + excessSize);
+	
 	//	Allocates the Memory Block
-
 	allocate_block(newBlock, size, excessSize, 0);
+
+	int alloc_size = get_blockSize(newBlock);
+	char *set_last_alloc = (char *) newBlock;
+	set_last_alloc += (alloc_size + BLOCK_TAIL_SIZE); //to account for blockTL
+	last_allocated_ptr = (void *) set_last_alloc;
 
 	return newBlock;
 }
@@ -317,6 +318,11 @@ void *allocate_next_fit(int size)
 	//			Program Break, you start from the beginning of your heap, as in with the free block with
 	//			the smallest address)
 
+	//Im thinking of looping through freelist from last allocated pointer to tail
+	//set blockfound to 1 if we find a block size >= size
+	//excesssize will be blocksize -size
+	//set next block to block we found
+
 	//	Checks if appropriate found is found.
 	if (blockFound)
 	{
@@ -348,33 +354,37 @@ void allocate_block(void *newBlock, int size, int excessSize, int fromFreeList)
 
 	//	TODO: Adjust the condition based on your Head and Tail size (depends on your TAG system)
 	//	Hint: Might want to have a minimum size greater than the Head/Tail sizes
-	addFreeBlock = excessSize > FREE_BLOCK_HEADER_SIZE;
+	addFreeBlock = excessSize > FREE_BLOCK_HEADER_SIZE + BLOCK_TAIL_SIZE;
 
 	//	If excess free size is big enough
 	if (addFreeBlock)
 	{
 		//	TODO: Create a free block using the excess memory size, then assign it to the Excess Free Block
+		
 
-		sbrk(size);
-		last_allocated_ptr = sbrk(0);
-		excessFreeBlock = last_allocated_ptr;
-		brk(sbrk(0));
-
-		sbrk(sizeof(int));
-		brk(sbrk(0));
-		add_length_header(excessSize);
-		excessFreeBlock = sbrk(0);
-		//might what to add length tag at the end of block here that will have the length 
-	
+		//create TLPN--TL of excess block after moving past PN and size of prev block
+		char *excess = (char *) newBlock;
+		excess += (2*sizeof(char)+size); //to account for PNblock. We should be at the head of new free block
+		
+		add_TAG_LEN_header(excess, excessSize,0); //Add TL head of xtrafree
+		int *excess_TL = (int *) excess;
+		excess_TL ++;
+		excess_TL ++; //moves to new free head L
+		excessFreeBlock = (void *) excess_TL;
+		char *add_tail = (char *) excess_TL;
+		add_tail +=(2*sizeof(char)+excessSize);
+		add_TAG_LEN_header(add_tail, excessSize,0); //Add TL tail of xtrafree
 
 		//	Checks if the new block was allocated from the free memory list
 		if (fromFreeList)
 		{
+			//Adjust/Modify PN of xtra free
 			//	Removes new block and adds the excess free block to the free list
 			replace_block_freeList(newBlock, excessFreeBlock); //value just after L passed here
 		}
 		else
 		{
+			//Creates PN of xtra free
 			//	Adds excess free block to the free list
 			add_block_freeList(excessFreeBlock);
 		}
@@ -383,10 +393,12 @@ void allocate_block(void *newBlock, int size, int excessSize, int fromFreeList)
 	else
 	{
 		//	TODO: Add excessSize to size and assign it to the new Block
-			sbrk(size + excessSize);
-			last_allocated_ptr = sbrk(0);
-			brk(sbrk(0));
-
+			int *new_size = (int *) newBlock;
+			new_size --; //to account for block. increase by size bytes
+			*new_size = size + excessSize; // at the beginning of block T
+			char *add_tail = (char *) newBlock;
+			add_tail +=(2*sizeof(char)+ size + excessSize);
+			add_TAG_LEN_header(add_tail, size + excessSize, 1); //add tail TL to allocated block
 		//	Checks if the new block was allocated from the free memory list
 		if (fromFreeList)
 		{
@@ -406,24 +418,27 @@ void replace_block_freeList(void *oldBlock, void *newBlock)
 {
 	//	TODO: Replace the old block with the new block
 
-	//Im doing this replacement by just migrating the pointers
-	//of the old block(P,N) to the new block oldblock and newblock are initially
-	//pointig just past the length size variable
-	char *new_P_ptr;
-	char *new_N_ptr;
 
-	void *old_ptr = oldBlock;
-	char *ptr = (char *) old_ptr;
+// I think replaces the block before the oldblock's next pointer to the 
+//to point to the head of newBlock and newblock keeps the copy of P and N from old
+//assuming length of excess has already been added
+	int oldsize = get_blockSize(oldBlock);
+	int newsize = get_blockSize(newBlock);
+	char *old_B = (char *) oldBlock; //pointer at P
+	char *old_P = old_B; //want to store the value of P
+	old_B++; //pointer at N
+	char *old_N = old_B;
+	old_B+= oldsize; //pointer at end of alloc size
 
-	new_P_ptr = ptr;
-	new_N_ptr = (ptr + 1);
+	char **new_B = (char *) newBlock;
+	new_B = &old_P;
+	new_B++;
+	new_B = &old_N;
 
-	char *new_ptr = (char *) newBlock;
-	*new_ptr = new_P_ptr;
-	*(new_ptr + 1) = new_N_ptr;
+		// char *free_P_ptr = (char *) freeListHead;
+		// while (*(char *) free_P_ptr != NULL){
 
-
-
+		// }
 
 	//	Updates SMA info
 	totalAllocatedSize += (get_blockSize(oldBlock) - get_blockSize(newBlock));
@@ -447,22 +462,28 @@ void add_block_freeList(void *block)
 
 	if(freeListHead == NULL){
 		freeListHead = block;
-		// brk(*length_ptr + 1);
+		freeListTail = block;
 		char *free_P_ptr = (char *) freeListHead;
-		brk(free_P_ptr + 2);
 		*free_P_ptr = NULL;
-		*(free_P_ptr + 1) = NULL; //representing the N pointer
+		free_P_ptr ++;
+		free_P_ptr = NULL; //representing the N pointer
+		//move the pointer an int before the size of block
+		//add free tag to it
 	}else{
-		//need to add to tail of free list;
+		//need to add to tail of free list;	
+		
+		char *new_P_ptr = (char *) block;
+		char **new_P = &new_P_ptr; //want to store the value of P
+		*new_P_ptr = NULL;
+		new_P_ptr++; //pointer at N
+		char **new_N = &new_P_ptr;
+		*new_P_ptr = NULL; // new tail should point to null values
 
-		char *free_P_ptr = (char *) block;
-		brk(free_P_ptr + 2);
-		*free_P_ptr = freeListTail;
-		*(free_P_ptr + 1) = NULL; //representing the N pointer
+		char *free_P_ptr = (char *) freeListTail;
+		*free_P_ptr = &new_P; //want to save new value of P
+		free_P_ptr++; //pointer at N
+		*free_P_ptr = &new_N;
 
-		char *N_tail_replace = (char *) freeListTail;
-		*(N_tail_replace + 1) = block; //ensure the N pointer of origional tail 
-										//is changed to point to new block
 	}
 
 	//	Updates SMA info
@@ -481,6 +502,10 @@ void remove_block_freeList(void *block)
 	//	TODO: 	Remove the block from the free list
 	//	Hint: 	You need to update the pointers in the free blocks before and after this block.
 	//			You also need to remove any TAG in the free block.
+
+
+//does similar to replace except pointers of block before and after current 
+//block are updated
 
 	//	Updates SMA info
 	totalAllocatedSize += get_blockSize(block);
@@ -516,6 +541,8 @@ int get_largest_freeBlock()
 	int largestBlockSize = 0;
 
 	//	TODO: Iterate through the Free Block List to find the largest free block and return its size
+
+	while ()
 
 	return largestBlockSize;
 }
