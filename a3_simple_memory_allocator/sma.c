@@ -62,18 +62,16 @@ char str[60];
  */
 
 
-
+//add a TL header to block
 void add_TAG_LEN_header(void *ptr, int size, int tag){
-	
-	//attach ->TL to head
-	// void *cur_ptr = ptr; 
-	int *head_ptr = (int *)ptr;//ptr should be right below T
+	//attach TL to head
+	int *head_ptr = (int *)ptr;
 	*(int *)head_ptr = tag;
-	head_ptr ++; //move to size column
-	*(int *) head_ptr = size; 
-	
+	head_ptr ++; 
+	*(int *) head_ptr = size; 	
 }
 
+//change the size of a block
 void change_size (void *ptr, int new_size, int tag){
 	//assuming ptr is right after L
 	int *mv_down_ptr = (int *) ptr;
@@ -81,22 +79,19 @@ void change_size (void *ptr, int new_size, int tag){
 	*mv_down_ptr = new_size;
 	mv_down_ptr --;//T head
 	add_TAG_LEN_header((void *)mv_down_ptr, new_size, tag);
-
 	char *mv_up_ptr =(char *) ptr;
-	mv_up_ptr+= 2*sizeof(char *) + new_size;//T tail
-	
+	mv_up_ptr+= 2*sizeof(char *) + new_size;//T tail	
 	add_TAG_LEN_header((void *)mv_up_ptr, new_size, tag);
 }
 
+//set breakpoint once at the start of program
 void set_INITIAL_PB(void *ptr){
-	// INIT_POINT_BREAK = ptr;
 	if(wasSet){
 		return;
 	}else{
 		wasSet = true;
 		INIT_POINT_BREAK = ptr;
 	}
-	
 }
 
 /*
@@ -109,43 +104,33 @@ void set_INITIAL_PB(void *ptr){
 void *sma_malloc(int size)
 {
 	void *pMemory = NULL;
-
 	// Checks if the free list is empty
 	if (freeListHead == NULL)
-	{	
-		
+	{		
 		// Allocate memory by increasing the Program Break
 		pMemory = allocate_pBrk(size);
-
 	}
 	// If free list is not empty
 	else
 	{
-	
 		// Allocate memory from the free memory list
 		pMemory = allocate_freeList(size);
-
 		// If a valid memory could NOT be allocated from the free memory list
 		if (pMemory == (void *)-2)
-		{
-			
+		{	
 			// Allocate memory by increasing the Program Break
 			pMemory = allocate_pBrk(size);
 		}
 	}
-
 	// Validates memory allocation
 	if (pMemory < 0 || pMemory == NULL)
 	{
 		sma_malloc_error = "Error: Memory allocation failed!";
 		return NULL;
 	}
-
 	// Updates SMA Info
 	totalAllocatedSize += size;
-	
 	brk(sbrk(0));
-
 	return pMemory;
 }
 
@@ -204,7 +189,6 @@ void sma_mallinfo()
 	//	Finds the largest Contiguous Free Space (should be the largest free block)
 	int largestFreeBlock = get_largest_freeBlock();
 	char str[60];
-
 	//	Prints the SMA Stats
 	sprintf(str, "Total number of bytes allocated: %lu", totalAllocatedSize);
 	puts(str);
@@ -221,8 +205,7 @@ void sma_mallinfo()
  * 	Description:	Reallocates memory pointed to by the input pointer by resizing the
  * 					memory block according to the input size.
  */
-void *sma_realloc(void *ptr, int size)
-{
+void *sma_realloc(void *ptr, int size){
 	// TODO: 	Should be similar to sma_malloc, except you need to check if the pointer address
 	//			had been previously allocated.
 	// Hint:	Check if you need to expand or contract the memory. If new size is smaller, then
@@ -253,36 +236,19 @@ void *allocate_pBrk(int size)
 	//	Hint:	Getting an exact "size" of memory might not be the best idea. Why?
 	//			Also, if you are getting a larger memory, you need to put the excess in the free list
 
-	// if(wasSet == false){
-	// 	INIT_POINT_BREAK = sbrk(0);
-	// 	wasSet == true;
-	// }
 	set_INITIAL_PB(sbrk(0));
 	
 	POINT_BREAK = sbrk(0);
 	sbrk(2*sizeof(int));
 	brk(sbrk(0));
-	// add_TAG_LEN_header(POINT_BREAK, size, 1);
 	newBlock = sbrk(0);
-
 	sbrk(FREE_BLOCK_HEADER_SIZE + size + BLOCK_TAIL_SIZE+ excessSize);
 	POINT_BREAK = sbrk(0);
 	brk(sbrk(0));
 	//	Allocates the Memory Block
-	puts("malloc");
 	allocate_block(newBlock, size, excessSize, 0);
-
-	// int alloc_size = get_blockSize(newBlock);
-	// char *set_last_alloc = (char *) newBlock;
-	// set_last_alloc += (2*sizeof(char *) + alloc_size + BLOCK_TAIL_SIZE); //to account for blockTL
-	// last_allocated_ptr = (void *) set_last_alloc;
-
 	POINT_BREAK = sbrk(0);
 	brk(sbrk(0));
-
-	sprintf(str, "recent alloc %d",  get_blockSize(newBlock));
-	puts(str);
-	
 	return newBlock;
 }
 
@@ -297,10 +263,8 @@ void *allocate_pBrk(int size)
 void *allocate_freeList(int size)
 {
 	void *pMemory = NULL;
-
 	if (currentPolicy == WORST)
-	{
-			
+	{	
 		// Allocates memory using Worst Fit Policy
 		pMemory = allocate_worst_fit(size);
 	}
@@ -313,7 +277,6 @@ void *allocate_freeList(int size)
 	{
 		pMemory = NULL;
 	}
-
 	return pMemory;
 }
 
@@ -323,72 +286,33 @@ void *allocate_freeList(int size)
  * 	Output type:	void*
  * 	Description:	Allocates memory using Worst Fit from the free memory list
  */
-void *allocate_worst_fit(int size)
-{
+void *allocate_worst_fit(int size){
 	void *worstBlock = freeListHead;
 	int excessSize;
 	int blockFound = 0;
-
 	//	TODO: 	Allocate memory by using Worst Fit Policy
 	//	Hint:	Start off with the freeListHead and iterate through the entire list to 
 	//			get the largest block
-
 	if(freeListHead != NULL){
 		int worstsize = get_largest_freeBlock();
-		sprintf(str, "largest size %d",  worstsize);
-		puts(str);
-		// void **tmp = freeListHead;
-		// while (get_blockSize(*tmp) != worstsize){
-		// 	tmp = *(tmp + 1);  
-		// }
 		void **tmp_ptr = freeListHead;
-		while(*((int*)tmp_ptr - 1) != worstsize){	
-		// while(get_blockSize(tmp_ptr) != worstsize){		
+		while(*((int*)tmp_ptr - 1) > worstsize){			
 			tmp_ptr++;
-			tmp_ptr = *tmp_ptr;
-			// int size = *((int*)tmp_ptr - 1);
-			// sprintf(str, "mysize %d",  size);
-			// puts(str);
-		}
-			
+			tmp_ptr = *tmp_ptr;	
+		}	
 		blockFound = 1;
 		worstBlock = tmp_ptr;
-		// int size = get_blockSize((void *) worstBlock);
-		// sprintf(str, "worsize %d",  size);
-		// puts(str);
 		excessSize = worstsize -  size;
-
-// .............................
-// int prevBlockSize = largestBlockSize;
-// 	void **tmp = freeListHead;
-// 	while (tmp != NULL){
-// 		// void *void_tmp = (void *) char_tmp;
-// 		prevBlockSize = get_blockSize (tmp);
-		
-// 		if(prevBlockSize > largestBlockSize){
-// 			largestBlockSize = prevBlockSize;
-// 		}
-// 		tmp++;
-// 		tmp = *tmp;	
-		
-// 	}
-
-
 	}
 	//	Checks if appropriate block is found.
-	if (blockFound)
-	{
-		sprintf(str, "blockfound");
-		puts(str);
+	if (blockFound){
 		//	Allocates the Memory Block
 		allocate_block(worstBlock, size, excessSize, 1);
 	}
-	else
-	{
+	else{
 		//	Assigns invalid address if appropriate block not found in free list
 		worstBlock = (void *)-2;
 	}
-
 	return worstBlock;
 }
 
@@ -398,43 +322,37 @@ void *allocate_worst_fit(int size)
  * 	Output type:	void*
  * 	Description:	Allocates memory using Next Fit from the free memory list
  */
-void *allocate_next_fit(int size)
-{
+void *allocate_next_fit(int size){
 	void *nextBlock = NULL;
 	int excessSize;
 	int blockFound = 0;
-
 	//	TODO: 	Allocate memory by using Next Fit Policy
 	//	Hint:	You should use a global pointer to keep track of your last allocated memory address, and 
 	//			allocate free blocks that come after that address (i.e. on top of it). Once you reach 
 	//			Program Break, you start from the beginning of your heap, as in with the free block with
 	//			the smallest address)
-
-	//Im thinking of looping through freelist from last allocated pointer to tail
-	//set blockfound to 1 if we find a block size >= size
-	//excesssize will be blocksize -size
-	//set next block to block we found
-	// void **tmp_ptr = freeListHead;
-	// 	while(tmp_ptr != NULL){
-	// 		if(*((int*)tmp_ptr - 1) > size){
-
-	// 		}
-	// 		tmp_ptr++;
-	// 		tmp_ptr = *tmp_ptr;
-	// 	}
-
+	if(freeListHead != NULL){
+		void **tmp_ptr = freeListHead;
+		while(*tmp_ptr  > POINT_BREAK){		
+			if(*((int*)tmp_ptr - 1) > size){
+				break;
+			}	
+			tmp_ptr++;
+			tmp_ptr = *tmp_ptr;	
+		}	
+		blockFound = 1;
+		int block_size = get_blockSize(tmp_ptr);
+		excessSize = block_size -  size;
+	}
 	//	Checks if appropriate found is found.
-	if (blockFound)
-	{
+	if (blockFound){
 		//	Allocates the Memory Block
 		allocate_block(nextBlock, size, excessSize, 1);
 	}
-	else
-	{
+	else{
 		//	Assigns invalid address if appropriate block not found in free list
 		nextBlock = (void *)-2;
 	}
-
 	return nextBlock;
 }
 
@@ -444,36 +362,27 @@ void *allocate_next_fit(int size)
  * 	Output type:	void
  * 	Description:	Performs routine operations for allocating a memory block
  */
-void allocate_block(void *newBlock, int size, int excessSize, int fromFreeList)
-{
+void allocate_block(void *newBlock, int size, int excessSize, int fromFreeList){
 	void *excessFreeBlock; //	pointer for any excess free block
 	int addFreeBlock;
-
 	// 	Checks if excess free size is big enough to be added to the free memory list
 	//	Helps to reduce external fragmentation
 
 	//	TODO: Adjust the condition based on your Head and Tail size (depends on your TAG system)
 	//	Hint: Might want to have a minimum size greater than the Head/Tail sizes
 	addFreeBlock = excessSize > FREE_BLOCK_HEADER_SIZE + BLOCK_TAIL_SIZE;
-
 	//	If excess free size is big enough
-	if (addFreeBlock)
-	{
-		sprintf(str, "addfree %d",  addFreeBlock);
-		puts(str);
+	if (addFreeBlock){
 		//	TODO: Create a free block using the excess memory size, then assign it to the Excess Free Block
-		
 		//allocated block TL...TL
 		int *setTL_head = (int *) newBlock;
 		setTL_head--;
 		setTL_head--;
 		add_TAG_LEN_header((void *)setTL_head, size, 1);
-		puts("Here?");
 		char *setTL_tail = (char *) newBlock;
 		setTL_tail += 2*sizeof(char *) + size;
 		add_TAG_LEN_header((void *)setTL_tail, size, 1);//add tail to alloc block in use
-		//..............
-
+		
 		//create TLPN--TL of excess block after moving past PN and size of prev block
 		char *excess = (char *) newBlock;
 		excess += (2*sizeof(char *)+ size + 2*sizeof(int)); //to account for PNblock. We should be at the T of new free block
@@ -487,14 +396,12 @@ void allocate_block(void *newBlock, int size, int excessSize, int fromFreeList)
 		add_TAG_LEN_header((void *) add_tail, excessSize,0); //Add TL tail of xtrafree
 
 		//	Checks if the new block was allocated from the free memory list
-		if (fromFreeList)
-		{
+		if (fromFreeList){
 			//Adjust/Modify PN of xtra free
 			//	Removes new block and adds the excess free block to the free list
 			replace_block_freeList(newBlock, excessFreeBlock); //value just after L passed here
 		}
-		else
-		{
+		else{
 			//Creates PN of xtra free
 			//	Adds excess free block to the free list
 			add_block_freeList(excessFreeBlock);
@@ -528,21 +435,6 @@ void allocate_block(void *newBlock, int size, int excessSize, int fromFreeList)
 void replace_block_freeList(void *oldBlock, void *newBlock)
 {
 	//	TODO: Replace the old block with the new block
-		
-	// int oldlength = get_blockSize(oldBlock);
-	// int newLength = get_blockSize(newBlock);
-
-	// int adjusted_length = oldlength - newLength;
-
-	// char *old_ptr = (char *) oldBlock;
-	// old_ptr -= 2*sizeof(int);
-	// add_TAG_LEN_header((void *) old_ptr, adjusted_length, 1); // add TL to head of old block
-		
-	// old_ptr += FREE_BLOCK_HEADER_SIZE + get_blockSize(oldBlock);
-
-	// add_TAG_LEN_header((void *) old_ptr, adjusted_length, 1); // add TL to tail of old block
-
-
 	void **cp_P_old = (void *)oldBlock;
 	void **cp_N_old = (void *)oldBlock;
 	cp_N_old ++;
@@ -550,12 +442,8 @@ void replace_block_freeList(void *oldBlock, void *newBlock)
 	*rp_PN_new = cp_P_old;
 	rp_PN_new++;
 	*rp_PN_new = cp_N_old;
-	
 	remove_block_freeList(oldBlock);
 	add_block_freeList(newBlock);
-	
-	puts("replace");
-
 	//	Updates SMA info
 	totalAllocatedSize += (get_blockSize(oldBlock) - get_blockSize(newBlock));
 	totalFreeSize += (get_blockSize(newBlock) - get_blockSize(oldBlock));
@@ -577,74 +465,45 @@ void add_block_freeList(void *block)
 	//			block is at the top and is bigger than the largest free block allowed (128kB).
 
 	void *newblock = block;
-
-	int n_size = get_blockSize(newblock);
-	sprintf(str, "beforefreeinsertsize %d", n_size);
-	puts(str);
-
 	int *left_check = (int *) block;
 	left_check -= 2;//move to beginT of current block
 
+	//merge with left block if free and not at inital Point break PB
 	if((void*) left_check > INIT_POINT_BREAK){
 		left_check -=2; //move to T of left
-		sprintf(str, "lft check %d",  *(int *)left_check);
-		puts(str);
-		if(*(int *)left_check == FREE){ //
-			puts("left is free");
-	
+		if(*(int *)left_check == FREE){ 
 			left_check += 2;//beginT of current block
-		
 			int left_block_length = get_blockSize((void *)left_check); //size of left block
-
-			sprintf(str, "lft size1 %d",  left_block_length);
-			puts(str);
-
 			char *left_block = (char *) left_check;
-
 			//let N of left block point to cur block
 			left_block -= 2*sizeof(int) + left_block_length + 2*sizeof(char *); //at P of left
-			
 			//change the tag of current to free
 			int *ch_TAG = (int *) block;
 			ch_TAG -= 2;
 			*ch_TAG = 0;
-			
-			int blocksize = get_blockSize(block);
-			
+			int blocksize = get_blockSize(block);	
 			change_size((void *) left_block, left_block_length + HEAD_TAIL_COST + blocksize, 0);//change both head and tail length
-			
-			newblock = (void *) left_block;
-			
+			newblock = (void *) left_block;	
 		}
 	}
 
+	//merge with right block if free and not at PB
 	int block_size = get_blockSize(newblock);
 	if(newblock + 2*sizeof(char *) + block_size + BLOCK_TAIL_SIZE < POINT_BREAK){ 
 		char *right_check = (char *) newblock;
 		right_check += 2*sizeof(char *) + block_size + BLOCK_TAIL_SIZE; //T of right block
-		sprintf(str, "rightcheck %d",  *(int *)right_check);
 		puts(str);
 		if( *(int *)right_check == FREE){
-
-			puts("Right is free");
-		
 			right_check += sizeof(int); //after T of right block
 			int rblock_size = *(int *) right_check;
-			sprintf(str, "right size1 %d",  rblock_size);
-			puts(str);
-		
 			int *ch_TAG = (int *) block;
 			ch_TAG -= 2;
 			*ch_TAG = 0;
-
 			change_size(newblock, block_size + HEAD_TAIL_COST + rblock_size, 0);//change both head and tail length
-			// newblock = block;
 		}
 	}
 	
 	int new_size = get_blockSize(newblock);
-	sprintf(str, "insertsize %d", new_size);
-	puts(str);
 	if(newblock + new_size + BLOCK_TAIL_SIZE == POINT_BREAK && new_size > MAX_TOP_FREE){
 		new_size = new_size - MAX_TOP_FREE/2; 
 		int *ptr =(int *) newblock;
@@ -660,43 +519,33 @@ void add_block_freeList(void *block)
 	
 	//insert into free list
 	if(freeListHead == NULL){
-		void **ptr = newblock;
-		*ptr = NULL;
-		ptr++;
-		*ptr = NULL;
-		
-		freeListHead = newblock;
-		freeListTail = newblock;
-
-	//.............................if no time......
-		// char *head = *((char **)(block));
-		// char *tail = *((char **)(block) + 1);
-		// freeListHead = head;
-		// freeListTail = tail;
-		//.................................
-		sprintf(str, "headalloc");
-		puts(str);
-	
+		//This commented code should allocate the next pointer
+		//but issues around referening the next node were noted.
+		// void **ptr = newblock;
+		// *ptr = NULL;
+		// ptr++;
+		// *ptr = NULL;		
+		// freeListHead = newblock;
+		// freeListTail = newblock;
+		char *head = *((char **)(block));
+		char *tail = *((char **)(block) + 1);
+		freeListHead = head;
+		freeListTail = tail;
 	}else{
 		if (newblock < freeListHead){
 			void **tmp = newblock;
 			*tmp = freeListHead;
-			sprintf(str, "test1");
-			puts(str);
-			
 		}else{
 			void **tmp_ptr = freeListHead;
 			while(tmp_ptr != NULL){
 				tmp_ptr++;
 				tmp_ptr = *tmp_ptr;
 			}
-			
 			void **ptr = newblock;
 			*ptr = tmp_ptr;
 			ptr++;
 			*ptr = tmp_ptr++;
 			tmp_ptr = newblock;
-
 			void **n_ptr = *((void **)newblock + 1);
 			if(n_ptr != NULL){
 				*n_ptr = *(void **)newblock;
@@ -705,8 +554,6 @@ void add_block_freeList(void *block)
 			}
 			sprintf(str, "inserted");
 			puts(str);
-
-			
 		}
 	}
 
@@ -726,59 +573,16 @@ void remove_block_freeList(void *block)
 	//	TODO: 	Remove the block from the free list
 	//	Hint: 	You need to update the pointers in the free blocks before and after this block.
 	//			You also need to remove any TAG in the free block.
-
-
-//does similar to replace except pointers of block before and after current 
-//block are updated
-
-	// char *old_B = (char *) block; //pointer at P
-	// char *old_P = old_B; //want to store the value of P
-	// old_B++; //pointer at N
-	// char *old_N = old_B;
-	// old_B--; //pointer back to P
-
-	// char *tmp_ptr = (char *) freeListHead;
-	// tmp_ptr++;//N
-	// void **tmp_ptr = freeListHead;
-	// while (*(char *) tmp_ptr != *(char*) old_B){
-	// 	tmp_ptr = *tmp_ptr;	
-	// }//once we exit we should be at block before old block
-
-	// char *prevBlock = tmp_ptr;
-
-	// tmp_ptr = (char *) freeListTail;//P
-	// while (*(char *) tmp_ptr != *(char*) old_B){
-	// 	tmp_ptr = *tmp_ptr;
-	// }//once we exit we should be at block after old block
-
-	// char *nextBlock = tmp_ptr;
-	// *nextBlock = prevBlock; //change the P of next block
-	// prevBlock++;
-	// *prevBlock = nextBlock; //change the N of previous block
-	//..................................................................
-
-	// if(freeListHead == block){
-	// 	// void **ptr = *((void *) block;
-	// 	// ptr++;
-	// 	// freeListHead = *ptr;
-	// 	void **ptr = *((void **) block + 1);
-	// 	*ptr = freeListHead;
-	// 	// ptr++;
-	// 	// freeListHead = *ptr;
-	// }
-
 	if (freeListHead == NULL || block == NULL){
 		return;
 	}
-
+	//If the block to be removed is head of freelist
 	if(freeListHead == block){
-		puts("remove head");
-		void **next = *((void **)(block) + 1); //next
+		//set the next node to be the head
+		void **next = *((void **)(block) + 1); 
 		freeListHead = next;
 	}
-
 	if(freeListHead != block && freeListTail !=block){
-		puts("remove");
 		void **prev = *((void **)(block));
 		void **next = *((void **)(block) + 1);
 		*prev++;
@@ -786,45 +590,15 @@ void remove_block_freeList(void *block)
 		*prev--;
 		next = prev;
 	}
-
-	// void **ptr = block;
-	// void **prev = *ptr;
-	// // void *new_N = *(prev + 1);
-	// void **next = *(ptr + 1);
 	int size = get_blockSize(block);
-	
+	//update the tag of allocated block
 	int *h_TAG = (int *)block;
 	h_TAG--;
 	h_TAG--; //at T
 	*h_TAG = 1;
-	
 	char *t_TAG = (char *)block;
 	t_TAG += 2*sizeof(char *) + size;
 	*(int *) t_TAG = 1;
-
-	// if(freeListTail != block){
-		
-	// 	void **ptr = block;
-	// 	void **prev_del = *(ptr); 
-	// 	void **next_ptr = *(ptr + 1);
-	// 	// *(next_ptr - 1) = *(ptr);
-
-	// }
-
-	// if(freeListHead != block){
-	// 	void **ptr = block;
-	// 	void **prev_del = *(ptr); 
-	// 	void **next_ptr = *(ptr + 1);
-	// 	// *(prev_del + 1) = *(ptr + 1);
-	// }
-
-	// void **prev_find = freeListHead;
-	// prev_find++;
-	// while (prev_find != NULL){
-
-	// }
-
-
 
 	//	Updates SMA info
 	totalAllocatedSize += get_blockSize(block);
@@ -840,11 +614,9 @@ void remove_block_freeList(void *block)
 int get_blockSize(void *ptr)
 {
 	int *pSize;
-
 	//	Points to the address where the Length of the block is stored
 	pSize = (int *)ptr;
 	pSize--;
-
 	//	Returns the deferenced size
 	return *(int *)pSize;
 }
@@ -855,24 +627,18 @@ int get_blockSize(void *ptr)
  * 	Output type:	int
  * 	Description:	Extracts the largest Block Size
  */
-int get_largest_freeBlock()
-{
+int get_largest_freeBlock(){
 	int largestBlockSize = 0;
-
 	//	TODO: Iterate through the Free Block List to find the largest free block and return its size
-
 	int prevBlockSize = largestBlockSize;
 	void **tmp = freeListHead;
 	while (tmp != NULL){
 		prevBlockSize = get_blockSize (tmp);
-		
 		if(prevBlockSize > largestBlockSize){
 			largestBlockSize = prevBlockSize;
 		}
 		tmp++;
-		tmp = *tmp;	
-		
+		tmp = *tmp;		
 	}
-
 	return largestBlockSize;
 }
