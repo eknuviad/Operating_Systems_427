@@ -146,59 +146,59 @@ int main(int argc, char *argv[])
 	sma_free(cp2);
 
 	// // Test 4: Next Fit Test
-	// puts("Test 4: Check for Next Fit algorithm...");
-	// // Sets Policy to Next Fit
-	// sma_mallopt(NEXT_FIT);
+	puts("Test 4: Check for Next Fit algorithm...");
+	// Sets Policy to Next Fit
+	sma_mallopt(NEXT_FIT);
 
-	// int *cp3 = (int *)sma_malloc(16 * 1024 * 3);
-	// int *cp4 = (int *)sma_malloc(16 * 1024 * 2);
+	int *cp3 = (int *)sma_malloc(16 * 1024 * 3);
+	int *cp4 = (int *)sma_malloc(16 * 1024 * 2);
 
-	// // Testing if the correct holes have been allocated
-	// if (cp3 == c2[8] && cp3 != NULL)
-	// {
-	// 	if (cp4 == c2[19])
-	// 	{
-	// 		// sprintf(str, "C[19]: %p", c[19]);
-	// 		// puts(str);
-	// 		// sprintf(str, "CP4: %p", cp4);
-	// 		// puts(str);
-	// 		puts("\t\t\t\t PASSED\n");
-	// 	}
-	// 	else
-	// 	{
-	// 		puts("\t\t\t\t FAILED\n");
-	// 	}
-	// }
-	// else
-	// {
-	// 	puts("\t\t\t\t FAILED\n");
-	// }
+	// Testing if the correct holes have been allocated
+	if (cp3 == c2[8] && cp3 != NULL)
+	{
+		if (cp4 == c2[19])
+		{
+			// sprintf(str, "C[19]: %p", c[19]);
+			// puts(str);
+			// sprintf(str, "CP4: %p", cp4);
+			// puts(str);
+			puts("\t\t\t\t PASSED\n");
+		}
+		else
+		{
+			puts("\t\t\t\t FAILED\n");
+		}
+	}
+	else
+	{
+		puts("\t\t\t\t FAILED\n");
+	}
 
-	// // Test 5: Realloc test (with Next Fit)
-	// puts("Test 5: Check for Reallocation with Next Fit...");
-	// // Writes some value pointed by the pointer
-	// if(cp3 != NULL && cp4 != NULL) {
-	// 	*cp3 = 427;
-	// 	*cp4 = 310;
-	// }
-	// // Calling realloc
-	// cp3 = (int *)sma_realloc(cp3, 16 * 1024 * 5);
-	// cp4 = (int *)sma_realloc(cp4, 16 * 1024 * 3);
+	// Test 5: Realloc test (with Next Fit)
+	puts("Test 5: Check for Reallocation with Next Fit...");
+	// Writes some value pointed by the pointer
+	if(cp3 != NULL && cp4 != NULL) {
+		*cp3 = 427;
+		*cp4 = 310;
+	}
+	// Calling realloc
+	cp3 = (int *)sma_realloc(cp3, 16 * 1024 * 5);
+	cp4 = (int *)sma_realloc(cp4, 16 * 1024 * 3);
 
-	// if (cp3 == c2[27] && cp3 != NULL && cp4 == c2[8] && cp4 != NULL)
-	// {
-	// 	//	Test the Data stored in the memory blocks
-	// 	if (*cp3 == 427 && *cp4 == 310) {
-	// 		puts("\t\t\t\t PASSED\n");
-	// 	}
-	// 	else {
-	// 		puts("\t\t\t\t FAILED\n");
-	// 	}				
-	// }
-	// else
-	// {
-	// 	puts("\t\t\t\t FAILED\n");
-	// }
+	if (cp3 == c2[27] && cp3 != NULL && cp4 == c2[8] && cp4 != NULL)
+	{
+		//	Test the Data stored in the memory blocks
+		if (*cp3 == 427 && *cp4 == 310) {
+			puts("\t\t\t\t PASSED\n");
+		}
+		else {
+			puts("\t\t\t\t FAILED\n");
+		}				
+	}
+	else
+	{
+		puts("\t\t\t\t FAILED\n");
+	}
 
 	//	Test 6: Print Stats
 	puts("Test 6: Print SMA Statistics...");

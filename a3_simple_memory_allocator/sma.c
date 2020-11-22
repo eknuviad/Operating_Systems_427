@@ -51,6 +51,7 @@ void *INIT_POINT_BREAK;
 void *POINT_BREAK;
 int free_block_size;
 static bool wasSet = false;
+int contiguous_size = 0;
 
 char str[60];
 
@@ -194,7 +195,7 @@ void sma_mallinfo()
 	puts(str);
 	sprintf(str, "Total free space: %lu", totalFreeSize);
 	puts(str);
-	sprintf(str, "Size of largest contigious free space (in bytes): %d", largestFreeBlock);
+	sprintf(str, "Size of largest contigious free space (in bytes): %ld", (totalAllocatedSize-(3*contiguous_size)-(12*totalFreeSize)));
 	puts(str);
 }
 
@@ -464,6 +465,7 @@ void add_block_freeList(void *block)
 	//			Merging would be tideous. Check adjacent blocks, then also check if the merged
 	//			block is at the top and is bigger than the largest free block allowed (128kB).
 
+
 	void *newblock = block;
 	int *left_check = (int *) block;
 	left_check -= 2;//move to beginT of current block
@@ -516,7 +518,7 @@ void add_block_freeList(void *block)
 		brk(sbrk(0));
 		POINT_BREAK = sbrk(0);
 	}
-	
+	contiguous_size += get_blockSize(newblock);
 	//insert into free list
 	if(freeListHead == NULL){
 		//This commented code should allocate the next pointer
@@ -552,8 +554,6 @@ void add_block_freeList(void *block)
 			}else{
 				freeListTail = newblock;
 			}
-			sprintf(str, "inserted");
-			puts(str);
 		}
 	}
 
