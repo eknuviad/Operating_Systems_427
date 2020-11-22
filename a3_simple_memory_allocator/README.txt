@@ -7,15 +7,18 @@
         : ./a.out
     - Run make clean to remove executables
 
+Block format implemeted
+TLPNblocksizeTL
+
 Assignment Summary
 3/6 tests are able to run ie Test 1, 2, 6. All other tests seemed to fail
 becuase I couldn't resolve issues with linked list pointer allocation 
-and off by one deallocation. But all methods except sma_realloc are implemeted.
+and off by one deallocation. But all methods are implemeted.
 
 What was Accomplished
 1. My code compiles successfully without bugs.
 2. Code successfully passes Test 1, Test 2, Test 6.
-3. Methods implemeted (malloc, free, mallinfo,)
+3. Methods implemeted (malloc, free, mallinfo, realloc)
 3. Issues with passing Test 4, 5 can be resolved by fixing the add_free_block methods
     as this method has problems where the nodes are either not initialised properly
     or cant allocate the next node to the list. I managed to resolve the initialisation

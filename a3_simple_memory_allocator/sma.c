@@ -214,6 +214,41 @@ void *sma_realloc(void *ptr, int size){
 	//			then check if there is sufficient adjacent free space to expand, otherwise find a new block
 	//			like sma_malloc.
 	//			Should not accept a NULL pointer, and the size should be greater than 0.
+	void *pMemory = NULL;
+	if(ptr == NULL){
+		puts("Pointer reallocate can't be NULL");
+		return NULL;
+	}
+	if(size < 0){
+		puts("size to reallocate must be greater than 0");
+		return NULL;
+	}
+	if(ptr > last_allocated_ptr){
+		// Checks if the free list is empty
+		if (freeListHead == NULL){		
+			// Allocate memory by increasing the Program Break
+			pMemory = allocate_pBrk(size);
+		}
+		// If free list is not empty
+		else{
+			// Allocate memory from the free memory list
+			pMemory = allocate_freeList(size);
+			// If a valid memory could NOT be allocated from the free memory list
+			if (pMemory == (void *)-2){	
+				// Allocate memory by increasing the Program Break
+				pMemory = allocate_pBrk(size);
+			}
+		}
+		// Validates memory allocation
+		if (pMemory < 0 || pMemory == NULL){
+			sma_malloc_error = "Error: Memory allocation failed!";
+			return NULL;
+		}
+	}
+	// Updates SMA Info
+	totalAllocatedSize += size;
+	brk(sbrk(0));
+	return pMemory;
 }
 
 /*
@@ -249,6 +284,7 @@ void *allocate_pBrk(int size)
 	//	Allocates the Memory Block
 	allocate_block(newBlock, size, excessSize, 0);
 	POINT_BREAK = sbrk(0);
+	last_allocated_ptr = POINT_BREAK;
 	brk(sbrk(0));
 	return newBlock;
 }
