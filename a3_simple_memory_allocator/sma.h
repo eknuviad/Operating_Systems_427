@@ -49,3 +49,13 @@ static void remove_block_freeList(void* block);
 static int get_blockSize(void *ptr);
 static int get_largest_freeBlock();
 //  TODO: Declare any private functions that you intend to add in your code.
+
+//add a TL header to block.
+void add_TAG_LEN_header(void *ptr, int size, int tag);
+
+//change the size of a block
+void change_size (void *ptr, int new_size, int tag);
+	
+//set breakpoint once at the start of program
+void set_INITIAL_PB(void *ptr);
+	
