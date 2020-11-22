@@ -54,8 +54,8 @@ int main(int argc, char *argv[])
 	for (i = 10; i < 18; i++)
 	{
 		sma_free(c[i]);
-		// sprintf(str, "Freeing c[i]: %p", c[i]);
-		// puts(str);
+		sprintf(str, "Freeing c[i]: %p", c[i]);
+		puts(str);
 	}
 
 	// Allocate some storage .. this should go into the freed storage
